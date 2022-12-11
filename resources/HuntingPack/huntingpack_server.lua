@@ -331,7 +331,9 @@ RegisterNetEvent("OnNotifyAboveSpeed")
 AddEventHandler('OnNotifyAboveSpeed', function(name, timeBelowSpeed)
     isBelowSpeed = false 
     timeRemaining = maxTimeBelowSpeed - timeBelowSpeed
-    --send_global_message("^2" .. name .. " has has gone above the speed! .. " .. timeRemaining  .. ' seconds remaining!')
+	if timeRemaining < 1.0 and timeRemaining > 0.0 then
+		send_global_message("^2" .. name .. " has has gone above the speed! .. " .. timeRemaining  .. ' seconds remaining!')
+	end
 end)
 
 RegisterNetEvent("OnNewRespawnPoint")
@@ -344,7 +346,15 @@ RegisterNetEvent("OnMarkedAFK")
 AddEventHandler('OnMarkedAFK', function(isAfk)
 	if isAfk then
 		send_global_message(GetPlayerName(source) .. " is now marked as Away From Keyboard")  
-		table.remove(spawnedPlayers, source)
+		afkIdx = -1
+		for Idx, playerId in ipairs(spawnedPlayers) do
+			if playerId == source then
+				afkIdx = Idx
+			end
+		end
+		if afkIdx ~= -1 then
+			table.remove(spawnedPlayers, afkIdx)
+		end
 	else
 	send_global_message(GetPlayerName(source) .. " has rejoined the chaos!")  
 		spawnedPlayers[#spawnedPlayers+1] = source

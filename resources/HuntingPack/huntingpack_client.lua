@@ -49,7 +49,7 @@ Citizen.CreateThread(function()
 		SetRandomVehicleDensityMultiplierThisFrame(1.0)
 		SetParkedVehicleDensityMultiplierThisFrame(1.0)
 		SetScenarioPedDensityMultiplierThisFrame(1.0, 1.0)
-
+		SetPedCanBeDraggedOut(GetPlayerPed(-1), false)
 		--local playerPed = GetPlayerPed(-1)
 		--local pos = GetEntityCoords(playerPed) 
 		--RemoveVehiclesFromGeneratorsInArea(pos['x'] - 500.0, pos['y'] - 500.0, pos['z'] - 500.0, pos['x'] + 500.0, pos['y'] + 500.0, pos['z'] + 500.0);
@@ -79,17 +79,29 @@ Citizen.CreateThread(function()
             end
         end
         ]]--
-        if GetPlayerWantedLevel(PlayerId()) ~= 0 then
-            SetPlayerWantedLevel(PlayerId(), 0, false)
-            SetPlayerWantedLevelNow(PlayerId(), false)
-        end
-
+       
+		if GetPlayerWantedLevel(PlayerId()) ~= 0 then
+			SetPlayerWantedLevel(PlayerId(), 0, false)
+			SetPlayerWantedLevelNow(PlayerId(), false)
+		end
         if ourTeamType == 'driver' then
-            
-            if lastVehicle == 'Firetruk' then
-				if totalLife > 45.0 then
-					SetVehicleMaxSpeed(100.0)
+			SetPoliceRadarBlips(false)
+			print(totalLife)
+            if totalLife > 30.0 then
+				SetVehicleMaxSpeed(ourDriverVehicle, 119.0/3.6)
+			end
+			if totalLife > 120.0 then
+				if GetPlayerWantedLevel(PlayerId()) ~= 5 then
+					SetPlayerWantedLevel(PlayerId(), 5, false)
+					SetPlayerWantedLevelNow(PlayerId(), false)
 				end
+			elseif totalLife > 60.0 then
+				if GetPlayerWantedLevel(PlayerId()) ~= 2 then
+					SetPlayerWantedLevel(PlayerId(), 2, false)
+					SetPlayerWantedLevelNow(PlayerId(), false)
+				end
+			end
+            if lastVehicle == 'Firetruk' then
                 SetVehicleCheatPowerIncrease(ourDriverVehicle, 0.7)
             elseif lastVehicle == 'Bus' then
                 SetVehicleCheatPowerIncrease(ourDriverVehicle, 1.5)
@@ -110,7 +122,7 @@ Citizen.CreateThread(function()
         if car then
             Citizen.InvokeNative(0xB736A491E64A32CF,Citizen.PointerValueIntInitialized(car))
         end
-		Citizen.Wait(1)
+		Citizen.Wait(100)
 	end
 
 end)
@@ -139,7 +151,7 @@ Citizen.CreateThread(function()
         end
         SetEnableVehicleSlipstreaming(true)
 		local speedinKMH = GetEntitySpeed(driverPed) * 3.6
-		if speedinKMH < 1.0 then
+		if speedinKMH < 1.0 and gameStarted then
 			afktime = afktime + 0.1
 			if afktime > 30 and isMarkedAFK == false then
 				TriggerServerEvent('OnMarkedAFK', true)
@@ -152,7 +164,6 @@ Citizen.CreateThread(function()
 				TriggerServerEvent('OnMarkedAFK', false)
 			end
 		end
-		print(speedinKMH)
 		if speedinKMH < MinSpeedInKMH and (GetGameTimer() - startTime)/1000 > 15 and ourTeamType == 'driver' then
 			timeBelowSpeed = timeBelowSpeed + delta_time
 			timeBelowSpeed = math.clamp(timeBelowSpeed, 0, maxTimeBelowSpeed)
@@ -163,7 +174,6 @@ Citizen.CreateThread(function()
 			end
 			if timeBelowSpeed >= maxTimeBelowSpeed and ourTeamType == 'driver' then
 				-- blow up
-				print("speed: " .. speedinKMH .. " uptime: " .. timeBelowSpeed)
 				SetEntityInvincible(ourDriverVehicle, false)
 				NetworkExplodeVehicle(ourDriverVehicle, true, true, true)
 				EndLocation = GetEntityCoords(PlayerPedId())
@@ -245,7 +255,7 @@ Citizen.CreateThread(function()
 			SetTextEntry("STRING")
 			SetTextCentre(1)
 			if (GetGameTimer() - startTime)/1000 < 15 and ourTeamType == 'driver' then
-				AddTextComponentString(("Get Ready!\n%.1f"):format(15 - (GetGameTimer() - startTime)/1000)) 
+				AddTextComponentString(("Run From The Police!\n%.1f"):format(15 - (GetGameTimer() - startTime)/1000)) 
 				DrawText(0.5,  0.2)
 			else			
 				if timeBelowSpeed > 0 and ourTeamType == 'driver' then
@@ -282,10 +292,10 @@ AddEventHandler('onClientGameTypeStart', function()
             x = spawnPos.x,
             y = spawnPos.y,
             z = spawnPos.z,
-            model = 's_m_y_cop_01'
+            model = 's_m_y_fireman_01'
         }, function()
             TriggerEvent('chat:addMessage', {
-                args = { '^5MOTD: ^12 Players minimum ^5required to start the game. ^2If you are blown up/disabled then you can use /respawn.' }
+                args = { '^5MOTD: ^12 Players minimum ^5required to start the game. ^2If you are blown up/disabled then you can use ^1F1^2 to respawn.' }
             })
         end)
     end)
@@ -380,7 +390,9 @@ AddEventHandler('onHuntingPackStart', function(teamtype, spawnPos, spawnRot, dri
 
     RemoveAllPedWeapons(GetPlayerPed(-1), true)
     total_players = count_array(GetPlayers())
-    if total_players <= 2 then
+	if total_players <= 1 then
+        possibleDriverVehicles = {'Firetruk'}
+    elseif total_players <= 2 then
         possibleDriverVehicles = {'camper'}
     elseif total_players <= 5 then
         possibleDriverVehicles = {'Firetruk'}
@@ -469,7 +481,9 @@ AddEventHandler('onHuntingPackStart', function(teamtype, spawnPos, spawnRot, dri
         end
     end
     --]]
-    SetVehicleDoorsLocked(vehicle, 4)
+	SetVehicleDoorsLocked(vehicle, 4)
+	SetVehicleDoorsLockedForPlayer(vehicle, PlayerId(), true)
+    
     -- give the vehicle back to the game (this'll make the game decide when to despawn the vehicle)
     SetEntityAsNoLongerNeeded(vehicle)
 
