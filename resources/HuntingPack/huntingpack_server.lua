@@ -39,6 +39,10 @@ AddEventHandler('playerDropped', function (reason)
         end
     end
     print('DroppedIdx: '.. droppedIdx .. ' DroppedPlayerId ' .. droppedPlayerId)
+	if GetPlayerName(source) == driverName then
+	    gameStarted = false
+		timerCountdown = 10
+	end
     if spawnedPlayers[droppedIdx] ~= nil then
         table.remove(spawnedPlayers, droppedIdx)
     end
@@ -449,11 +453,11 @@ end
 Citizen.CreateThread(function()
     while true do
         total_players = count_array(GetSpawnedPlayers())
-        if total_players < 2 and gameStarted then
+        if total_players < 1 and gameStarted then
             timerCountdown = 30
             gameStarted = false
         end
-        if total_players >= 2 and not gameStarted then
+        if total_players >= 1 and not gameStarted then
             if timerCountdown > 10 then
                 timerCountdown = timerCountdown - 5
             else
