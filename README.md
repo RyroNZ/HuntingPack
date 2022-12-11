@@ -5,4 +5,5 @@ Download the FXServer and drop server-data into folder.
 
 Configure to your needs and update the defaultLocation in Resources/HuntingPack/huntingpack_server.lua for the scoreboard.
 
-<video src='https://www.youtube.com/watch?v=zTjL0jPD590' width=180/></video>
+[<img src="https://img.youtube.com/vi/zTjL0jPD590/maxresdefault.jpg" width="50%">](https://www.youtube.com/watch?v=zTjL0jPD590)
+
