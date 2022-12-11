@@ -1,0 +1,1 @@
+F:\GTA5HuntingPack\server\FXServer.exe +exec server.cfg
