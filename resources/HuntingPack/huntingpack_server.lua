@@ -344,7 +344,7 @@ RegisterNetEvent("OnMarkedAFK")
 AddEventHandler('OnMarkedAFK', function(isAfk)
 	if isAfk then
 		send_global_message(GetPlayerName(source) .. " is now marked as Away From Keyboard")  
-		spawnedPlayers.remove(source)	
+		table.remove(spawnedPlayers, source)
 	else
 	send_global_message(GetPlayerName(source) .. " has rejoined the chaos!")  
 		spawnedPlayers[#spawnedPlayers+1] = source
