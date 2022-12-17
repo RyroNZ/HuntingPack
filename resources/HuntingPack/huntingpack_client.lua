@@ -449,6 +449,7 @@ AddEventHandler('onHuntingPackStart',
     print("Client_HuntingPackStart")
     -- account for the argument not being passed
     totalLife = 0
+    respawnCooldown = 30
     lifeStart = GetGameTimer()
     driverName = driver
     gameStarted = true
@@ -651,15 +652,6 @@ AddEventHandler('OnUpdateLifeTimers', function(newTotalLife)
     if ourTeamType ~= 'driver' then totalLife = newTotalLife end
 end)
 
-RegisterCommand('respawn', function(source, args)
-    if totalLife > 0 and ourTeamType ~= 'driver' then
-        print('Requesting Start for ' .. GetPlayerName(PlayerId()) ..
-                  ' in progress')
-        TriggerServerEvent('OnRequestJoinInProgress',
-                           GetPlayerServerId(PlayerId()))
-    end
-end, false)
-
 ranks = {
     {rank = 1, name = 'None', points = 0, players = 0},
     {rank = 2, name = 'None', points = 0, players = 0},
@@ -798,15 +790,6 @@ RegisterCommand('respawnbtn', function(source, args, rawcommand)
     if ourTeamType == 'driver' then
         TriggerEvent('chat:addMessage',
                      {args = {'Unable to respawn.... you are the driver!'}})
-        return
-    end
-    if totalLife < 15 then
-        TriggerEvent('chat:addMessage', {
-            args = {
-                'You must wait ' .. 15 - totalLife ..
-                    ' seconds until respawn is available'
-            }
-        })
         return
     end
     if respawnCooldown > 0 then
