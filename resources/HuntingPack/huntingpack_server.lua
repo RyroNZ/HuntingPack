@@ -8,7 +8,7 @@ gameStarted = false
 local selectedSpawn = nil
 local respawnRot = 0
 local defaultLocation =
-    'C:\\Game Development\\Git\\HuntingPack\\resources\\HuntingPack\\'
+    'resources\\HuntingPack\\config\\'
 local respawnPoint = vector3(0, 0, 0)
 local lifeStart = GetGameTimer()
 local startTime = GetGameTimer()
