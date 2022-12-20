@@ -590,14 +590,14 @@ Citizen.CreateThread(function()
     local blips = {}
     local currentPlayer = PlayerId()
     SetGpsActive(true)
-    StartGpsMultiRoute(6, true, true)
+    StartGpsMultiRoute(25, true, true)
     AddPointToGpsMultiRoute(endPoint.x, endPoint.y, endPoint.z)
     SetGpsMultiRouteRender(true)
     while true do
         Wait(100)
 
-        AddBlipForArea(endPoint.x, endPoint.y, endPoint.z, 500, 500)
-
+        local destinationBlip = AddBlipForArea(endPoint.x, endPoint.y, endPoint.z, 500, 500)
+        SetBlipColour(destinationBlip, 25)
         local players = GetPlayers()
 
         for player = 0, 64 do
