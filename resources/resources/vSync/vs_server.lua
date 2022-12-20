@@ -178,7 +178,7 @@ function RandomTime()
 end
 
 function RandomWeather()
-    possibleWeather = {'clear', 'rain', 'clear', 'clear', 'clear', 'clear'}
+    possibleWeather = {'clear', 'rain', 'clear', 'clear', 'clear', 'clear', 'xmas', 'clear', 'clear', 'xmas'}
     selectedRandomWeather = possibleWeather[math.random(1, #possibleWeather)]
     print('Selected Weather: ' .. selectedRandomWeather)
     CurrentWeather = selectedRandomWeather
