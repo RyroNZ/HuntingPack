@@ -31,6 +31,9 @@ local afkTime = 0
 local isMarkedAfk = false
 local respawnCooldown = 0
 local currentSpawnConfig = {name = 'None', driverSpawnVec = vector3(0,0,0), driverSpawnRot = 0, attackerSpawnVec = vector3(0,0,0), attackerSpawnRot = 0, defenderSpawnVec = vector3(0,0,0), defenderSpawnRot = 0}
+local selectedSpawn = nil
+local showScoreboard = false
+local endPoint = vector3(-1657.05, -3155.652, 13) -- airport final location
 
 local function count_array(tab)
     count = 0
@@ -108,21 +111,6 @@ Citizen.CreateThread(function()
             SetPlayerWantedLevelNow(PlayerId(), false)
         end
         if ourTeamType == 'driver' then
-            SetPoliceRadarBlips(false)
-            if totalLife > 30.0 then
-                -- SetVehicleMaxSpeed(ourDriverVehicle, 100.0/3.6)
-            end
-            if totalLife > 0.0 then
-                if GetPlayerWantedLevel(PlayerId()) ~= 2 then
-                    SetPlayerWantedLevel(PlayerId(), 2, false)
-                    SetPlayerWantedLevelNow(PlayerId(), false)
-                end
-            elseif totalLife > 60.0 then
-                if GetPlayerWantedLevel(PlayerId()) ~= 2 then
-                    SetPlayerWantedLevel(PlayerId(), 2, false)
-                    SetPlayerWantedLevelNow(PlayerId(), false)
-                end
-            end
             if lastVehicle == 'Firetruk' then
                 SetVehicleCheatPowerIncrease(ourDriverVehicle, 0.7)
             elseif lastVehicle == 'Bus' then
@@ -178,6 +166,12 @@ Citizen.CreateThread(function()
         end
         SetEnableVehicleSlipstreaming(true)
         local speedinKMH = GetEntitySpeed(driverPed) * 3.6
+        local distanceToFinalLocation = #(GetEntityCoords(PlayerPedId()) - endPoint)
+        if distanceToFinalLocation < 40 and ourTeamType == 'driver' and gameStarted then
+            gameStarted = false
+            TriggerServerEvent('OnNotifyHighScore', GetPlayerName(PlayerId()), totalLife)
+        end
+
         for player = 0, 64 do
             if player ~= currentPlayer and NetworkIsPlayerActive(player) then
                 local playerPed = GetPlayerPed(player)
@@ -266,8 +260,9 @@ Citizen.CreateThread(function()
                 SetTextEntry("STRING")
                 SetTextCentre(1)
                 total_players = count_array(GetPlayers())
+                local distanceToFinalLocation = #(GetEntityCoords(PlayerPedId()) - endPoint)
                 AddTextComponentString(
-                    ("Survived\n%.1f Seconds\n %.0f Score"):format(totalLife,
+                    ("Survived\n%.1f Seconds\n %.0f Score\n"):format(totalLife,
                                                                    totalLife *
                                                                        (total_players *
                                                                            1.68 -
@@ -275,7 +270,7 @@ Citizen.CreateThread(function()
                 DrawText(0.9, 0.1)
             end
             local speedinKMH = GetEntitySpeed(driverPed) * 3.6
-            SetTextFont(1)
+            SetTextFont(0)
             SetTextProportional(0)
             SetTextScale(0.0, 1.0)
             if (GetGameTimer() - startTime) / 1000 < 15 or speedinKMH >=
@@ -291,8 +286,8 @@ Citizen.CreateThread(function()
             SetTextEntry("STRING")
             SetTextCentre(1)
             if (GetGameTimer() - startTime) / 1000 < 15 and ourTeamType ==
-                'driver' then
-                AddTextComponentString(("Run From The Police!\n%.1f"):format(
+                'driver' and showScoreboard == false then
+                AddTextComponentString(("Run From The Police\n Get to the airport to set a score!\n%.1f"):format(
                                            15 - (GetGameTimer() - startTime) /
                                                1000))
                 DrawText(0.5, 0.2)
@@ -305,7 +300,7 @@ Citizen.CreateThread(function()
 
             end
             if 15 - (GetGameTimer() - startTime) / 1000 > 0 and totalLife < 15 and
-                ourTeamType ~= 'driver' then
+                ourTeamType ~= 'driver' and showScoreboard == false then
                 SetTextFont(1)
                 SetTextProportional(0)
                 SetTextScale(0.0, 1.0)
@@ -322,7 +317,7 @@ Citizen.CreateThread(function()
                                                                    (GetGameTimer() -
                                                                        startTime) /
                                                                    1000))
-                else
+                elseif showScoreboard == false then
                     AddTextComponentString(
                         ("Stop the truck!\n%.1f"):format(15 -
                                                              (GetGameTimer() -
@@ -446,9 +441,10 @@ AddEventHandler('OnUpdateDefender',
                 function(NewDefender) defenderName = NewDefender end)
 
 AddEventHandler('onHuntingPackStart',
-                function(teamtype, spawnPos, spawnRot, driver)
+                function(teamtype, spawnPos, spawnRot, driver, inSelectedSpawn)
     print("Client_HuntingPackStart")
     -- account for the argument not being passed
+    selectedSpawn = inSelectedSpawn
     totalLife = 0
     respawnCooldown = 30
     lifeStart = GetGameTimer()
@@ -471,7 +467,7 @@ AddEventHandler('onHuntingPackStart',
     if total_players <= 1 then
         possibleDriverVehicles = {'Firetruk'}
     elseif total_players <= 2 then
-        possibleDriverVehicles = {'camper'}
+        --possibleDriverVehicles = {'camper'}
     elseif total_players <= 5 then
         possibleDriverVehicles = {'Firetruk'}
     end
@@ -593,9 +589,14 @@ end
 Citizen.CreateThread(function()
     local blips = {}
     local currentPlayer = PlayerId()
-
+    SetGpsActive(true)
+    StartGpsMultiRoute(6, true, true)
+    AddPointToGpsMultiRoute(endPoint.x, endPoint.y, endPoint.z)
+    SetGpsMultiRouteRender(true)
     while true do
         Wait(100)
+
+        AddBlipForArea(endPoint.x, endPoint.y, endPoint.z, 500, 500)
 
         local players = GetPlayers()
 
@@ -696,7 +697,7 @@ end)
 Citizen.CreateThread(function()
     while true do
         Wait(0)
-        if not gameStarted or (GetGameTimer() - startTime) / 1000 < 15 then
+        if showScoreboard and selectedSpawn ~= nil then
             SetTextFont(1)
             SetTextProportional(0)
             SetTextScale(0.0, 1.0)
@@ -708,8 +709,8 @@ Citizen.CreateThread(function()
             SetTextEntry("STRING")
             SetTextCentre(1)
             total_players = count_array(GetPlayers())
-            AddTextComponentString(total_players .. " Player Leaderboard")
-            DrawText(0.80, 0.235)
+            AddTextComponentString(selectedSpawn.name .. " Player Leaderboard")
+            DrawText(0.5, 0.1)
             DrawPlayers()
         end
     end
@@ -738,13 +739,13 @@ function DrawPlayers()
             SetTextEntry("STRING")
             SetTextCentre(1)
             AddTextComponentString(player.name)
-            DrawText(0.65, 0.2685 + Yoffset * player.rank)
+            DrawText(0.45, 0.13 + Yoffset * player.rank)
             SetTextFont(0)
             SetTextProportional(0)
             SetTextScale(0.0, 0.25)
             if player.rank == 1 then
                 SetTextColour(255, 215, 0, 255)
-            elseif player.rank == 2 then
+            elseif player.rank == 2 then 
                 SetTextColour(192, 192, 192, 255)
             elseif player.rank == 3 then
                 SetTextColour(205, 127, 50, 255)
@@ -759,7 +760,7 @@ function DrawPlayers()
             SetTextCentre(1)
             AddTextComponentString(("%.0f Seconds\n%i Attackers"):format(
                                        player.points, player.players - 1))
-            DrawText(0.75, 0.2685 + Yoffset * player.rank)
+            DrawText(0.50, 0.13 + Yoffset * player.rank)
             SetTextFont(0)
             SetTextProportional(0)
             SetTextScale(0.0, 0.3)
@@ -781,7 +782,7 @@ function DrawPlayers()
             AddTextComponentString(("%0.0f Score"):format(player.points *
                                                               (player.players *
                                                                   1.68 - 1)))
-            DrawText(0.94, 0.2685 + Yoffset * player.rank)
+            DrawText(0.55, 0.13 + Yoffset * player.rank)
         end
     end
 end
@@ -809,4 +810,14 @@ RegisterCommand('respawnbtn', function(source, args, rawcommand)
 
 end, false)
 
+RegisterCommand('scoreboard', function(source, args, rawcommand)
+    if showScoreboard then
+        showScoreboard = false
+    else
+        showScoreboard = true
+    end
+    
+end, false)
+
 RegisterKeyMapping('respawnbtn', 'Respawn', "keyboard", "F1")
+RegisterKeyMapping('scoreboard', 'Scoreboard', 'keyboard', 'Tab')

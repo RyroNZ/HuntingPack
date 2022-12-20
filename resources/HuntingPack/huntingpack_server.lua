@@ -5,7 +5,7 @@ attackers = {}
 afkplayers = {}
 timerCountdown = 30
 gameStarted = false
-local selectedSpawn = 0
+local selectedSpawn = nil
 local respawnRot = 0
 local defaultLocation =
     'C:\\Game Development\\Git\\HuntingPack\\resources\\HuntingPack\\'
@@ -15,6 +15,7 @@ local startTime = GetGameTimer()
 local totalLife = 0
 local driverName = ''
 local defenderPlayerId = -1
+
 
 function GetSpawnedPlayers() return spawnedPlayers end
 
@@ -105,8 +106,8 @@ function loadTable(filename)
                 {rank = 9, name = 'None', points = 0, players = 0},
                 {rank = 10, name = 'None', points = 0, players = 0}
 
-            }, 'ranks' .. count_array(GetSpawnedPlayers()) .. '.json')
-            return loadTable('ranks' .. count_array(GetSpawnedPlayers()) .. '.json')
+            }, 'ranks' .. selectedSpawn.name .. '.json')
+            return loadTable('ranks' .. selectedSpawn.name .. '.json')
         end
     else
         -- Read data from file
@@ -135,7 +136,7 @@ end
 RegisterNetEvent("OnRequestedStart")
 AddEventHandler('OnRequestedStart', function(startPoint)
     print("Received Start Event")
-    ranks = loadTable('ranks' .. count_array(GetSpawnedPlayers()) .. '.json')
+   
     timeBelowSpeed = 0
     total_players = count_array(GetSpawnedPlayers())
     print(("Selecting Teams (Total Players %i)"):format(total_players))
@@ -146,6 +147,7 @@ AddEventHandler('OnRequestedStart', function(startPoint)
     total_spawns = count_array(spawns)
     selectedSpawn = spawns[math.random(1, total_spawns)]
     print('Spawning at ' .. selectedSpawn.name)
+    ranks = loadTable('ranks' .. selectedSpawn.name .. '.json')
     -- randomly select the driver
     driverIdx = math.random(1, total_players)
     defenderIdx = math.random(1, total_players)
@@ -173,7 +175,7 @@ AddEventHandler('OnRequestedStart', function(startPoint)
             send_global_message(
                 ('^1%s was selected as the driver!'):format(name))
             TriggerClientEvent('onHuntingPackStart', playerId, 'driver',
-                               selectedSpawn.driverSpawnVec, selectedSpawn.driverSpawnRot, driverName)
+                               selectedSpawn.driverSpawnVec, selectedSpawn.driverSpawnRot, driverName, selectedSpawn)
             maxTimeBelowSpeed = math.clamp(total_players * 4, 6, 12)
             if total_players == 1 then maxTimeBelowSpeed = 90000 end
             TriggerClientEvent('OnUpdateMinSpeed', playerId, 45,
@@ -198,13 +200,13 @@ AddEventHandler('OnRequestedStart', function(startPoint)
                                     defenderSpawn +
                                        vector3(math.random(-10, 10),
                                                math.random(-10, 10), 0),
-                                   selectedSpawn.driverSpawnRot, driverName)
+                                   selectedSpawn.driverSpawnRot, driverName, selectedSpawn)
             else
                 TriggerClientEvent('onHuntingPackStart', playerId, 'attacker',
                                    attackerSpawn +
                                        vector3(math.random(-10, 10),
                                                math.random(-10, 10), 0),
-                                   selectedSpawn.attackerSpawnRot, driverName)
+                                   selectedSpawn.attackerSpawnRot, driverName, selectedSpawn)
             end
         end
         count = count + 1
@@ -328,15 +330,13 @@ function deepcopy(orig, copies)
     return copy
 end
 
-RegisterNetEvent('OnNotifyBlownUp')
-AddEventHandler('OnNotifyBlownUp', function(Name, LifeTime)
-    send_global_message('Driver has blown up! Total Life: ' .. LifeTime ..
-                            ' Seconds')
+RegisterNetEvent('OnNotifyHighScore')
+AddEventHandler('OnNotifyHighScore', function(Name, LifeTime)
     gameStarted = false
     timerCountdown = 10
     newhighScoreIdx = -1
 
-    if LifeTime < 30 then return end
+  
     oldRanks = deepcopy(ranks)
     total_players = count_array(GetSpawnedPlayers())
     for i, player in pairs(ranks) do
@@ -362,7 +362,22 @@ AddEventHandler('OnNotifyBlownUp', function(Name, LifeTime)
         end
     end
 
-    saveTable(ranks, 'ranks' .. count_array(GetSpawnedPlayers()) .. '.json')
+    saveTable(ranks, 'ranks' .. selectedSpawn.name .. '.json')
+
+    for _, playerId in ipairs(GetSpawnedPlayers()) do
+        TriggerClientEvent('OnGameEnded', playerId)
+    end
+    
+
+end)
+
+RegisterNetEvent('OnNotifyBlownUp')
+AddEventHandler('OnNotifyBlownUp', function(Name, LifeTime)
+    send_global_message('Driver has blown up! Total Life: ' .. LifeTime ..
+                            ' Seconds')
+    gameStarted = false
+    timerCountdown = 10
+    newhighScoreIdx = -1
 
     for _, playerId in ipairs(GetSpawnedPlayers()) do
         TriggerClientEvent('OnGameEnded', playerId)
@@ -405,15 +420,16 @@ end)
 Citizen.CreateThread(function()
     while true do
         Citizen.Wait(1000)
-        ranks =
-            loadTable('ranks' .. count_array(GetSpawnedPlayers()) .. '.json')
-        for _, playerId in ipairs(GetSpawnedPlayers()) do
-            TriggerClientEvent('OnClearRanks', playerId)
-            for _, player in pairs(ranks) do
-                TriggerClientEvent('OnUpdateRanks', playerId, player.name,
-                                   player.points, player.players)
+        if selectedSpawn ~= nil then
+            ranks =
+                loadTable('ranks' .. selectedSpawn.name .. '.json')
+            for _, playerId in ipairs(GetSpawnedPlayers()) do
+                TriggerClientEvent('OnClearRanks', playerId)
+                for _, player in pairs(ranks) do
+                    TriggerClientEvent('OnUpdateRanks', playerId, player.name,
+                                    player.points, player.players)
+                end
             end
         end
     end
-
 end)
