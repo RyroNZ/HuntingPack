@@ -185,6 +185,8 @@ AddEventHandler('OnRequestedStart', function(startPoint)
         count = count + 1
     end
 
+    local defenderSpawn = vector3(selectedSpawn.defenderSpawnVec.x, selectedSpawn.defenderSpawnVec.y, selectedSpawn.defenderSpawnVec.z)
+    local attackerSpawn = vector3(selectedSpawn.attackerSpawnVec.x, selectedSpawn.attackerSpawnVec.y, selectedSpawn.attackerSpawnVec.z)
     count = 1
     for _, playerId in ipairs(GetSpawnedPlayers()) do
         local name = GetPlayerName(playerId)
@@ -193,13 +195,13 @@ AddEventHandler('OnRequestedStart', function(startPoint)
                 TriggerClientEvent('OnUpdateDefender', -1, name)
                 defenderPlayerId = playerId
                 TriggerClientEvent('onHuntingPackStart', playerId, 'defender',
-                                   selectedSpawn.defenderSpawnVec +
+                                    defenderSpawn +
                                        vector3(math.random(-10, 10),
                                                math.random(-10, 10), 0),
                                    selectedSpawn.driverSpawnRot, driverName)
             else
                 TriggerClientEvent('onHuntingPackStart', playerId, 'attacker',
-                                   selectedSpawn.attackerSpawnVec +
+                                   attackerSpawn +
                                        vector3(math.random(-10, 10),
                                                math.random(-10, 10), 0),
                                    selectedSpawn.attackerSpawnRot, driverName)
@@ -271,6 +273,8 @@ RegisterNetEvent("OnRequestJoinInProgress")
 AddEventHandler('OnRequestJoinInProgress', function(playerId)
     if playerId ~= -1 then
         print('Starting ' .. GetPlayerName(playerId) .. ' in progress')
+        local defenderSpawn = vector3(selectedSpawn.defenderSpawnVec.x, selectedSpawn.defenderSpawnVec.y, selectedSpawn.defenderSpawnVec.z)
+        local attackerSpawn = vector3(selectedSpawn.attackerSpawnVec.x, selectedSpawn.attackerSpawnVec.y, selectedSpawn.attackerSpawnVec.z)
         if respawnPoint ~= vector3(0, 0, 0) then
             if source == defenderPlayerId then
                 TriggerClientEvent('onHuntingPackStart', playerId, 'defender',
@@ -288,13 +292,13 @@ AddEventHandler('OnRequestJoinInProgress', function(playerId)
         else
             if source == defenderPlayerId then
                 TriggerClientEvent('onHuntingPackStart', playerId, 'defender',
-                                   attackerSpawn +
+                                    defenderSpawn +
                                        vector3(math.random(-10, 10),
                                                math.random(-10, 10), 0),
                                    respawnRot, driverName)
             else
                 TriggerClientEvent('onHuntingPackStart', playerId, 'attacker',
-                                   attackerSpawn +
+                    attackerSpawn +
                                        vector3(math.random(-10, 10),
                                                math.random(-10, 10), 0),
                                    respawnRot, driverName)
@@ -385,15 +389,8 @@ Citizen.CreateThread(function()
                                     " seconds until game starts!")
             if timerCountdown < 0 then
                 gameStarted = true
-                startPoints = {
-                    'airport_north', 'dock', 'beach', 'north',
-                    'north_hollywood', 'paleto', 'airport', 'carpark', 'rng',
-                    'dock22', 'dock2'
-                }
-                -- startPoints = {'airport'}
-                selectedRandomPoint = math.random(1, #startPoints)
-                TriggerEvent('OnRequestedStart',
-                             startPoints[selectedRandomPoint])
+                TriggerEvent('OnRequestedStart')
+                
             end
         end
         if timerCountdown > 10 then

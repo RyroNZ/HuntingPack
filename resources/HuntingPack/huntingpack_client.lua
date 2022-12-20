@@ -234,6 +234,7 @@ Citizen.CreateThread(function()
         if ourTeamType == 'driver' then
             previousLocation = GetEntityCoords(GetPlayerPed(-1))
             local rot = GetEntityHeading(PlayerPedId())
+            Wait(2500)
             TriggerServerEvent('OnNewRespawnPoint', previousLocation, rot)
         end
         Wait(1000)
@@ -470,7 +471,7 @@ AddEventHandler('onHuntingPackStart',
     if total_players <= 1 then
         possibleDriverVehicles = {'Firetruk'}
     elseif total_players <= 2 then
-        -- possibleDriverVehicles = {'camper'}
+        possibleDriverVehicles = {'camper'}
     elseif total_players <= 5 then
         possibleDriverVehicles = {'Firetruk'}
     end
