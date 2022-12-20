@@ -164,7 +164,7 @@
         "z": 31.29419708251953
       },
       "defenderSpawnRot": 30.90797996520996,
-      "name": "north",
+      "name": "Paleto Bay",
       "driverSpawnRot": 294.4697265625
     },
     {
@@ -185,7 +185,7 @@
         "z": 32.87825012207031
       },
       "defenderSpawnRot": 326.030029296875,
-      "name": "military",
+      "name": "Military Airport",
       "driverSpawnRot": 332.4140930175781
     }
   ]
