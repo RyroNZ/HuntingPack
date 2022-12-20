@@ -333,8 +333,10 @@ end
 RegisterNetEvent('OnNotifyHighScore')
 AddEventHandler('OnNotifyHighScore', function(Name, LifeTime)
     gameStarted = false
-    timerCountdown = 10
+    timerCountdown = 60
     newhighScoreIdx = -1
+
+    send_global_message('^6' .. Name .. ' has successfully extracted!')
 
   
     oldRanks = deepcopy(ranks)

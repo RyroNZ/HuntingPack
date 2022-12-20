@@ -106,10 +106,6 @@ Citizen.CreateThread(function()
             respawnCooldown = respawnCooldown - 0.1
         end
 
-        if GetPlayerWantedLevel(PlayerId()) ~= 0 then
-            SetPlayerWantedLevel(PlayerId(), 0, false)
-            SetPlayerWantedLevelNow(PlayerId(), false)
-        end
         if ourTeamType == 'driver' then
             if lastVehicle == 'Firetruk' then
                 SetVehicleCheatPowerIncrease(ourDriverVehicle, 0.7)
@@ -127,6 +123,8 @@ Citizen.CreateThread(function()
         else
             if lastVehicle == 'Riot' then
                 SetVehicleCheatPowerIncrease(ourDriverVehicle, 10.0)
+            elseif lastVehicle == 'Ambulance' then
+                SetVehicleCheatPowerIncrease(ourDriverVehicle, 1.6)
             else
                 SetVehicleCheatPowerIncrease(ourDriverVehicle, 1.3)
             end
@@ -167,9 +165,19 @@ Citizen.CreateThread(function()
         SetEnableVehicleSlipstreaming(true)
         local speedinKMH = GetEntitySpeed(driverPed) * 3.6
         local distanceToFinalLocation = #(GetEntityCoords(PlayerPedId()) - endPoint)
+        local wantedLevel = 0
+        if distanceToFinalLocation < 500 and ourTeamType == 'driver' then
+            wantedLevel = 5
+        end
+        if GetPlayerWantedLevel(PlayerId()) ~= wantedLevel then
+            SetPlayerWantedLevel(PlayerId(), wantedLevel, false)
+            SetPlayerWantedLevelNow(PlayerId(), false)
+        end
+
         if distanceToFinalLocation < 40 and ourTeamType == 'driver' and gameStarted then
             gameStarted = false
             TriggerServerEvent('OnNotifyHighScore', GetPlayerName(PlayerId()), totalLife)
+            TriggerEvent('SpawnVehicle', 'miljet', GetEntityCoords(PlayerPedId()), GetEntityHeading(PlayerPedId()) + 180.0)
         end
 
         for player = 0, 64 do
@@ -225,7 +233,7 @@ end)
 Citizen.CreateThread(function()
     local previousLocation = vector3(0, 0, 0)
     while true do
-        if ourTeamType == 'driver' then
+        if ourTeamType == 'driver' and gameStarted then
             previousLocation = GetEntityCoords(GetPlayerPed(-1))
             local rot = GetEntityHeading(PlayerPedId())
             Wait(2500)
@@ -250,7 +258,7 @@ Citizen.CreateThread(function()
         if gameStarted then
             if startTime > 15 then
                 SetTextFont(0)
-                SetTextProportional(0)
+                SetTextProportional(1)
                 SetTextScale(0.0, 0.5)
                 SetTextColour(0, 128, 0, 255)
                 SetTextDropshadow(0, 0, 0, 0, 255)
@@ -271,8 +279,8 @@ Citizen.CreateThread(function()
             end
             local speedinKMH = GetEntitySpeed(driverPed) * 3.6
             SetTextFont(0)
-            SetTextProportional(0)
-            SetTextScale(0.0, 1.0)
+            SetTextProportional(1)
+            SetTextScale(0.0, 0.5)
             if (GetGameTimer() - startTime) / 1000 < 15 or speedinKMH >=
                 minSpeedInKMH then
                 SetTextColour(0, 128, 0, 255)
@@ -302,8 +310,8 @@ Citizen.CreateThread(function()
             if 15 - (GetGameTimer() - startTime) / 1000 > 0 and totalLife < 15 and
                 ourTeamType ~= 'driver' and showScoreboard == false then
                 SetTextFont(1)
-                SetTextProportional(0)
-                SetTextScale(0.0, 1.0)
+                SetTextProportional(1)
+                SetTextScale(0.0, 0.5)
                 SetTextColour(255, 0, 0, 255)
                 SetTextDropshadow(0, 0, 0, 0, 255)
                 SetTextEdge(2, 0, 0, 0, 150)
@@ -485,11 +493,24 @@ AddEventHandler('onHuntingPackStart',
         vehicleName = possibleAttackerVehicles[selectedRandomCar]
     end
 
-    lastVehicle = vehicleName
     startLocation = spawnPos
+    TriggerEvent('SpawnVehicle', vehicleName, spawnPos, spawnRot)
+   
 
-    -- check if the vehicle actually exists
-    if not IsModelInCdimage(vehicleName) or not IsModelAVehicle(vehicleName) then
+end)
+
+
+AddEventHandler('SpawnVehicle', function(vehicleName, inSpawnPos, inSpawnRot)
+
+    car = GetVehiclePedIsIn(GetPlayerPed(-1), false)
+    print(car)
+    if car ~= 0 then
+        SetEntityAsMissionEntity(car, false, false) 
+        DeleteVehicle(car)
+    end
+    lastVehicle = vehicleName
+     -- check if the vehicle actually exists
+     if not IsModelInCdimage(vehicleName) or not IsModelAVehicle(vehicleName) then
         TriggerEvent('chat:addMessage', {
             args = {
                 'It might have been a good thing that you tried to spawn a ' ..
@@ -511,55 +532,14 @@ AddEventHandler('onHuntingPackStart',
 
     -- get the player's position
     local playerPed = PlayerPedId() -- get the local player ped
-    local pos = spawnPos -- get the position of the local player ped
+    local pos = inSpawnPos -- get the position of the local player ped
     lastSpawnCoords = spawnPos
     -- create the vehicle
-    local vehicle = CreateVehicle(vehicleName, pos.x, pos.y, pos.z, spawnRot,
+    local vehicle = CreateVehicle(vehicleName, pos.x, pos.y, pos.z, inSpawnRot,
                                   true, false)
     ourDriverVehicle = vehicle
     SetPedIntoVehicle(playerPed, vehicle, -1)
-    --[[ 
-    if ourTeamType ~= 'driver' then
-        RequestModel('s_m_y_cop_01')
 
-        -- load the model for this spawn
-        while not HasModelLoaded('s_m_y_cop_01') do
-            RequestModel('s_m_y_cop_01')
-
-            Wait(0)
-            -- release the player model
-            SetModelAsNoLongerNeeded('s_m_y_cop_01')
-        end
-        passengerPed = CreatePed(6, 's_m_y_cop_01', pos.x, pos.y, pos.z, 0, true, false)
-        GiveWeaponToPed(passengerPed, 453432689, 9999, false, true)
-        SetPedIntoVehicle(passengerPed, vehicle, 0)
-        SetPedCombatAttributes(passengerPed, 2, true)
-        SetPedCombatAttributes(passengerPed, 3, false)
-
-        if vehicleName == 'FBI2' or vehicleName == 'Sheriff2' or vehicleName == 'Pranger' then
-            RequestModel('s_m_y_swat_01')
-
-        -- load the model for this spawn
-        while not HasModelLoaded('s_m_y_swat_01') do
-            RequestModel('s_m_y_swat_01')
-
-            Wait(0)
-            -- release the player model
-            SetModelAsNoLongerNeeded('s_m_y_swat_01')
-        end
-        passengerPed = CreatePed(6, 's_m_y_swat_01', pos.x, pos.y, pos.z, 0, true, false)
-        GiveWeaponToPed(passengerPed, 453432689, 9999, false, true)
-        SetPedIntoVehicle(passengerPed, vehicle, 3)
-        SetPedCombatAttributes(passengerPed, 2, true)
-        SetPedCombatAttributes(passengerPed, 3, false)
-        passengerPed = CreatePed(6, 's_m_y_swat_01', pos.x, pos.y, pos.z, 0, true, false)
-        GiveWeaponToPed(passengerPed, 453432689, 9999, false, true)
-        SetPedIntoVehicle(passengerPed, vehicle, 4)
-        SetPedCombatAttributes(passengerPed, 2, true)
-        SetPedCombatAttributes(passengerPed, 3, false)
-        end
-    end
-    --]]
     SetVehicleDoorsLocked(vehicle, 4)
     SetVehicleDoorsLockedForPlayer(vehicle, PlayerId(), true)
 
