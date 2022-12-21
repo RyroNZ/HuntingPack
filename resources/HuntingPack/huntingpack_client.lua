@@ -94,6 +94,8 @@ Citizen.CreateThread(function()
                     TriggerServerEvent('OnRequestJoinInProgress', GetPlayerServerId(PlayerId()))
                 end
             end
+        else
+            timeDead = 0
         end
 
 
@@ -252,10 +254,11 @@ Citizen.CreateThread(function()
                 -- blow up
                 SetEntityInvincible(GetVehiclePedIsIn(GetPlayerPed(-1), false), false)
                 SetEntityInvincible(GetVehiclePedIsIn(GetPlayerPed(-1), true), false)
+                SetEntityInvincible(GetPlayerPed(-1), false)
                 NetworkExplodeVehicle(GetVehiclePedIsIn(GetPlayerPed(-1), false), true, true, true)
                 NetworkExplodeVehicle(GetVehiclePedIsIn(GetPlayerPed(-1), true), true, true, true)
                 timeBelowSpeed = 0
-                SetEntityInvincible(GetPlayerPed(-1), false)
+                
                 EndLocation = GetEntityCoords(PlayerPedId())
                 if shouldNotifyAboutDeath then
                     if defenderName ~= '' then
@@ -424,7 +427,7 @@ AddEventHandler('onClientGameTypeStart', function()
         end)
     end)
 
-    exports.spawnmanager:setAutoSpawn(true)
+    exports.spawnmanager:setAutoSpawn(false)
     exports.spawnmanager:forceRespawn()
     print('Requesting Start for ' .. GetPlayerName(PlayerId()) .. ' in progress')
     TriggerServerEvent('OnRequestJoinInProgress', GetPlayerServerId(PlayerId()))

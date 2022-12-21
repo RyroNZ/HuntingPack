@@ -176,7 +176,7 @@ AddEventHandler('OnRequestedStart', function(startPoint)
                 ('^1%s was selected as the driver!'):format(name))
             TriggerClientEvent('onHuntingPackStart', playerId, 'driver',
                                selectedSpawn.driverSpawnVec, selectedSpawn.driverSpawnRot, driverName, selectedSpawn)
-            maxTimeBelowSpeed = math.clamp(total_players * 4, 6, 12)
+            maxTimeBelowSpeed = 8
             if total_players == 1 then maxTimeBelowSpeed = 60 end
             TriggerClientEvent('OnUpdateMinSpeed', playerId, 45,
                                maxTimeBelowSpeed)
@@ -409,6 +409,10 @@ end)
 
 RegisterNetEvent('OnNotifyKilled')
 AddEventHandler('OnNotifyKilled', function(Name, LifeTime)
+
+    if not gameStarted then
+        return
+    end
     send_global_message('Driver has been killed! Total Life: ' .. LifeTime ..
                             ' Seconds')
     gameStarted = false
