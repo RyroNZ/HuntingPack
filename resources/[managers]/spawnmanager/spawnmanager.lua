@@ -233,14 +233,6 @@ function spawnPlayer(spawnIdx, cb)
             spawn = spawnPoints[spawnIdx]
         end
 
-        if not spawn.skipFade then
-            DoScreenFadeOut(500)
-
-            while not IsScreenFadedOut() do
-                Citizen.Wait(0)
-            end
-        end
-
         -- validate the index
         if not spawn then
             Citizen.Trace("tried to spawn at an invalid spawn index\n")
@@ -313,14 +305,6 @@ function spawnPlayer(spawnIdx, cb)
 
         ShutdownLoadingScreen()
 
-        if IsScreenFadedOut() then
-            DoScreenFadeIn(500)
-
-            while not IsScreenFadedIn() do
-                Citizen.Wait(0)
-            end
-        end
-
         -- and unfreeze the player
         freezePlayer(PlayerId(), false)
 
@@ -349,7 +333,7 @@ Citizen.CreateThread(function()
             -- check if we want to autospawn
             if autoSpawnEnabled then
                 if NetworkIsPlayerActive(PlayerId()) then
-                    if (diedAt and (math.abs(GetTimeDifference(GetGameTimer(), diedAt)) > 2000)) or respawnForced then
+                    if (diedAt and (math.abs(GetTimeDifference(GetGameTimer(), diedAt)) > 20000)) or respawnForced then
                         if autoSpawnCallback then
                             autoSpawnCallback()
                         else

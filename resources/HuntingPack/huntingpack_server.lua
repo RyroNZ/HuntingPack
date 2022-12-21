@@ -124,6 +124,8 @@ end
 
 local ranks = loadTable('ranks.json')
 local spawns = loadTable('spawns.json')
+total_spawns = count_array(spawns)
+selectedSpawn = spawns[math.random(1, total_spawns)]
 
 local function send_global_message(text)
     print('Sending Global Message ' .. text)
@@ -176,8 +178,8 @@ AddEventHandler('OnRequestedStart', function(startPoint)
                 ('^1%s was selected as the driver!'):format(name))
             TriggerClientEvent('onHuntingPackStart', playerId, 'driver',
                                selectedSpawn.driverSpawnVec, selectedSpawn.driverSpawnRot, driverName, selectedSpawn)
-            maxTimeBelowSpeed = 8
-            if total_players == 1 then maxTimeBelowSpeed = 60 end
+            maxTimeBelowSpeed = 30
+            if total_players == 1 then maxTimeBelowSpeed = 30 end
             TriggerClientEvent('OnUpdateMinSpeed', playerId, 45,
                                maxTimeBelowSpeed)
             send_global_message('^3' .. total_players ..

@@ -80,6 +80,10 @@ Citizen.CreateThread(function()
         SetScenarioPedDensityMultiplierThisFrame(1.0, 1.0)
         local playerPed = GetPlayerPed(-1)
         local currentVehicleId = GetVehiclePedIsIn(playerPed, false)
+        driverPed = playerPed
+
+        SetCanAttackFriendly(playerPed, true, true)
+        NetworkSetFriendlyFireOption(true)
 
         
 
@@ -89,7 +93,6 @@ Citizen.CreateThread(function()
                 TriggerServerEvent('OnNotifyKilled', GetPlayerName(PlayerId()), totalLife)
             else
                 if timeDead > 10 then
-                    exports.spawnmanager:forceRespawn()        
                     respawnCooldown = 30            
                     TriggerServerEvent('OnRequestJoinInProgress', GetPlayerServerId(PlayerId()))
                 end
@@ -110,16 +113,24 @@ Citizen.CreateThread(function()
                 GiveWeaponToPed(playerPed, 0xBFE256D4, 30, false, true)
             end
         else
+            --print(currentVehicleId)
+            --SetDisableVehiclePetrolTankDamage(currentVehicleId, true)
+            --SetVehicleEngineCanDegrade(currentVehicleId, false)
+            --SetVehicleFuelLevel(currentVehicleId, 100.0)
             if currentVehicleId ~= ourDriverVehicle and ourTeamType == 'driver' then
                 oldVehicle = ourDriverVehicle
+                ourDriverVehicle = currentVehicleId
                 timeBelowSpeed = 0
-                SetEntityAsMissionEntity(currentVehicleId, false, false) 
-                DeleteVehicle(currentVehicleId)
-                TriggerEvent('SpawnVehicle', 'firetruk', GetEntityCoords(PlayerPedId()) + vector3(0,0,0), GetEntityHeading(PlayerPedId())) 
+                --TriggerEvent('SpawnVehicle', 'firetruk', GetEntityCoords(PlayerPedId()) + vector3(0,0,0), GetEntityHeading(PlayerPedId())) 
+	            
             end
             isLocalPlayerInVehicle = true
-            timeRemainingOnFoot = 30
-            SetEntityInvincible(GetPlayerPed(-1), true)
+            timeRemainingOnFoot = math.clamp(timeRemainingOnFoot + 0.1, 0, 30)
+            if ourTeamType == 'driver' then
+                SetEntityInvincible(GetPlayerPed(-1), true)
+            else
+                SetEntityInvincible(GetPlayerPed(-1), false)
+            end
             RemoveAllPedWeapons(playerPed)
         end
         -- local pos = GetEntityCoords(playerPed) 
@@ -208,9 +219,6 @@ Citizen.CreateThread(function()
                 lifeStart = GetGameTimer()
             end
         end
-        if ourDriverVehicle ~= 0 then
-            SetVehicleFuelLevel(ourDriverVehicle, 100.0)
-        end
         SetEnableVehicleSlipstreaming(true)
         local speedinKMH = GetEntitySpeed(driverPed) * 3.6
         local distanceToFinalLocation = #(GetEntityCoords(PlayerPedId()) - endPoint)
@@ -230,18 +238,8 @@ Citizen.CreateThread(function()
             TriggerEvent('SpawnVehicle', 'miljet', GetEntityCoords(PlayerPedId()), GetEntityHeading(PlayerPedId()) + 180.0)
         end
 
-        for player = 0, 64 do
-            if player ~= currentPlayer and NetworkIsPlayerActive(player) then
-                local playerPed = GetPlayerPed(player)
-                local playerName = GetPlayerName(player)
-
-                if driverName == playerName then
-                    driverPed = playerPed
-                end
-            end
-        end
         if speedinKMH < minSpeedInKMH and (GetGameTimer() - startTime) / 1000 >
-            15 and ourTeamType == 'driver' then
+            15 and ourTeamType == 'driver'then
             timeBelowSpeed = timeBelowSpeed + delta_time
             timeBelowSpeed = math.clamp(timeBelowSpeed, 0, maxTimeBelowSpeed)
             if shouldNotifyBelowSpeed and ourTeamType == 'driver' then
@@ -250,6 +248,7 @@ Citizen.CreateThread(function()
                 shouldNotifyBelowSpeed = false
                 shouldNotifyAboveSpeed = true
             end
+
             if timeBelowSpeed >= maxTimeBelowSpeed and ourTeamType == 'driver' then
                 -- blow up
                 SetEntityInvincible(GetVehiclePedIsIn(GetPlayerPed(-1), false), false)
@@ -279,8 +278,6 @@ Citizen.CreateThread(function()
             end
             shouldNotifyBelowSpeed = true
             timestart = GetGameTimer()
-            timeBelowSpeed = math.clamp(timeBelowSpeed - delta_time, 0,
-                                        maxTimeBelowSpeed)
         end
     end
 end)
@@ -355,7 +352,7 @@ Citizen.CreateThread(function()
             SetTextCentre(1)
             if (GetGameTimer() - startTime) / 1000 < 15 and ourTeamType ==
                 'driver' and showScoreboard == false then
-                AddTextComponentString(("Run From The Police\n Get to the airport to set a score!\nIf you explode your score is VOID!\n%.1f"):format(
+                AddTextComponentString(("Run From The Police\n Get to the airport to set a score!\n%.1f"):format(
                                            15 - (GetGameTimer() - startTime) /
                                                1000))
                 DrawText(0.5, 0.2)
@@ -363,7 +360,7 @@ Citizen.CreateThread(function()
                 if ourTeamType == 'driver' then
                     if isLocalPlayerInVehicle == false then
                         AddTextComponentString(
-                            ("%.1f"):format(timeRemainingOnFoot))
+                            ("%.1f"):format(math.clamp(timeRemainingOnFoot, 0, 30)))
                         DrawText(0.5, 0.25)
                     end
                     if timeBelowSpeed > 0 then
@@ -395,7 +392,7 @@ Citizen.CreateThread(function()
                                                                    1000))
                 elseif showScoreboard == false then
                     AddTextComponentString(
-                        ("Stop the truck from extracing at the airport!\n%.1f"):format(15 -
+                        ("Stop the truck from extracting at the airport!\n%.1f"):format(15 -
                                                              (GetGameTimer() -
                                                                  startTime) /
                                                              1000))
@@ -413,29 +410,38 @@ end)
 
 AddEventHandler('onClientGameTypeStart', function()
     exports.spawnmanager:setAutoSpawnCallback(function()
+        local inModel = 'a_f_m_beach_01'
+        if ourTeamType  == 'driver' then
+            inModel = 's_m_y_fireman_01'
+        elseif ourTeamType  == 'defender' then
+            inModel = 's_m_m_paramedic_01'
+        else
+            inModel = 's_m_y_cop_01'
+        end
         exports.spawnmanager:spawnPlayer({
             x = spawnPos.x,
             y = spawnPos.y,
             z = spawnPos.z,
-            model = 's_m_y_fireman_01'
+            model = inModel,
+            skipFade = true
         }, function()
             TriggerEvent('chat:addMessage', {
                 args = {
                     '^5MOTD: ^12 Players minimum ^5required to start the game. ^2If you are blown up/disabled then you can use ^1F1^2 to respawn.'
                 }
             })
+            
         end)
     end)
 
-    exports.spawnmanager:setAutoSpawn(false)
+   
+
+    exports.spawnmanager:setAutoSpawn(true)
     exports.spawnmanager:forceRespawn()
+    ShutdownLoadingScreen()
     print('Requesting Start for ' .. GetPlayerName(PlayerId()) .. ' in progress')
     TriggerServerEvent('OnRequestJoinInProgress', GetPlayerServerId(PlayerId()))
     TriggerServerEvent('OnPlayerSpawned')
-    local ped = PlayerPedId()
-	SetCanAttackFriendly(ped, true, true)
-	NetworkSetFriendlyFireOption(true)
-
 end)
 
 RegisterCommand('areas', function(source, args)
@@ -532,22 +538,6 @@ AddEventHandler('onHuntingPackStart',
                 function(teamtype, spawnPos, spawnRot, driver, inSelectedSpawn)
     print("Client_HuntingPackStart")
     SetEntityHealth(GetPlayerPed(-1), 1000)
-    local model = 'a_f_m_beach_01'
-    if teamtype == 'driver' then
-        model = 's_m_y_fireman_01'
-    elseif teamtype == 'defender' then
-        model = 's_m_m_paramedic_01'
-    else
-        model = 's_m_y_cop_01'
-    end
-    if IsModelInCdimage(model) and IsModelValid(model) then
-    RequestModel(model)
-    while not HasModelLoaded(model) do
-        Citizen.Wait(0)
-    end
-    SetPlayerModel(PlayerId(), model)
-    SetModelAsNoLongerNeeded(model)
-    end
    
     -- account for the argument not being passed
     timeRemainingOnFoot = 30
@@ -561,6 +551,12 @@ AddEventHandler('onHuntingPackStart',
     gameStarted = true
     local vehicleName = 'Sheriff2'
     ourTeamType = teamtype
+    DoScreenFadeOut(500)
+    Wait(500)
+    exports.spawnmanager:forceRespawn()    
+    NetworkResurrectLocalPlayer(spawnPos.x, spawnPos.y, spawnPos.z, spawnRot, true, true, false)
+    Wait(1000)
+    DoScreenFadeIn(500)
     print(teamtype)
     startTime = GetGameTimer()
     possibleDriverVehicles = {'Firetruk'}
@@ -637,8 +633,14 @@ AddEventHandler('SpawnVehicle', function(vehicleName, inSpawnPos, inSpawnRot)
     -- create the vehicle
     local vehicle = CreateVehicle(vehicleName, pos.x, pos.y, pos.z, inSpawnRot,
                                   true, false)
+
+    while not NetworkGetEntityIsNetworked(vehicle) do
+        NetworkRegisterEntityAsNetworked(vehicle)
+        Citizen.Wait(0)
+    end
+    local id = NetworkGetNetworkIdFromEntity(vehicle)
     ourDriverVehicle = vehicle
-    SetPedIntoVehicle(playerPed, vehicle, -1)
+    TaskWarpPedIntoVehicle(playerPed, vehicle, -1)
 
     --SetVehicleDoorsLocked(vehicle, 4)
     --SetVehicleDoorsLockedForPlayer(vehicle, PlayerId(), true)
@@ -647,9 +649,10 @@ AddEventHandler('SpawnVehicle', function(vehicleName, inSpawnPos, inSpawnRot)
     SetEntityAsNoLongerNeeded(vehicle)
 
     SetVehicleOnGroundProperly(vehicle)
-
-    SetDisableVehiclePetrolTankDamage(ourDriverVehicle, true)
-    SetVehicleEngineCanDegrade(ourDriverVehicle, false)
+    SetVehicleNeedsToBeHotwired(vehicle, false)
+    SetNetworkIdExistsOnAllMachines(id, true)
+    SetNetworkIdCanMigrate(id, true)
+    SetVehicleHasBeenOwnedByPlayer(vehicle, false)
 
     -- release the model
     SetModelAsNoLongerNeeded(vehicleName)
