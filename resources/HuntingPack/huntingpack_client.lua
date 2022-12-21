@@ -34,6 +34,13 @@ local currentSpawnConfig = {name = 'None', driverSpawnVec = vector3(0,0,0), driv
 local selectedSpawn = nil
 local showScoreboard = false
 local endPoint = vector3(-1657.05, -3155.652, 13) -- airport final location
+local totalPlayers = 0
+local currentRank = -1
+local scoreToBeat = -1
+local timeRemainingOnFoot = 30
+local isLocalPlayerInVehicle = false
+local timeDead = 0
+local oldVehicle = nil
 
 local function count_array(tab)
     count = 0
@@ -71,15 +78,55 @@ Citizen.CreateThread(function()
         SetRandomVehicleDensityMultiplierThisFrame(1.0)
         SetParkedVehicleDensityMultiplierThisFrame(1.0)
         SetScenarioPedDensityMultiplierThisFrame(1.0, 1.0)
-        SetPedCanBeDraggedOut(GetPlayerPed(-1), false)
-        -- local playerPed = GetPlayerPed(-1)
+        local playerPed = GetPlayerPed(-1)
+        local currentVehicleId = GetVehiclePedIsIn(playerPed, false)
+
+        
+
+        if GetEntityHealth(playerPed) <= 0 and gameStarted then
+            timeDead = timeDead + 0.1
+            if ourTeamType == 'driver' then
+                TriggerServerEvent('OnNotifyKilled', GetPlayerName(PlayerId()), totalLife)
+            else
+                if timeDead > 10 then
+                    exports.spawnmanager:forceRespawn()        
+                    respawnCooldown = 30            
+                    TriggerServerEvent('OnRequestJoinInProgress', GetPlayerServerId(PlayerId()))
+                end
+            end
+        end
+
+
+        if currentVehicleId == 0 then
+            isLocalPlayerInVehicle = false
+            timeRemainingOnFoot = timeRemainingOnFoot - 0.1
+            if timeRemainingOnFoot <= 0 and ourTeamType == 'driver' then
+                SetEntityHealth(GetPlayerPed(-1), 0)
+            end
+            SetEntityInvincible(GetPlayerPed(-1), false)
+            if HasPedGotWeapon(playerPed,0xBFE256D4, false) == false then
+                GiveWeaponToPed(playerPed, 0xBFE256D4, 30, false, true)
+            end
+        else
+            if currentVehicleId ~= ourDriverVehicle and ourTeamType == 'driver' then
+                oldVehicle = ourDriverVehicle
+                timeBelowSpeed = 0
+                SetEntityAsMissionEntity(currentVehicleId, false, false) 
+                DeleteVehicle(currentVehicleId)
+                TriggerEvent('SpawnVehicle', 'firetruk', GetEntityCoords(PlayerPedId()) + vector3(0,0,0), GetEntityHeading(PlayerPedId())) 
+            end
+            isLocalPlayerInVehicle = true
+            timeRemainingOnFoot = 30
+            SetEntityInvincible(GetPlayerPed(-1), true)
+            RemoveAllPedWeapons(playerPed)
+        end
         -- local pos = GetEntityCoords(playerPed) 
         -- RemoveVehiclesFromGeneratorsInArea(pos['x'] - 500.0, pos['y'] - 500.0, pos['z'] - 500.0, pos['x'] + 500.0, pos['y'] + 500.0, pos['z'] + 500.0);
 
         -- These natives do not have to be called everyframe.
         -- SetGarbageTrucks(0)
         -- SetRandomBoats(0)
-        SetEntityInvincible(GetPlayerPed(-1), true)
+       
         --[[SetEntityInvincible(ourDriverVehicle, true)
         if ourTeamType == 'driver' then
            
@@ -177,6 +224,7 @@ Citizen.CreateThread(function()
         if distanceToFinalLocation < 40 and ourTeamType == 'driver' and gameStarted then
             gameStarted = false
             TriggerServerEvent('OnNotifyHighScore', GetPlayerName(PlayerId()), totalLife)
+            timeBelowSpeed = 0
             TriggerEvent('SpawnVehicle', 'miljet', GetEntityCoords(PlayerPedId()), GetEntityHeading(PlayerPedId()) + 180.0)
         end
 
@@ -202,16 +250,20 @@ Citizen.CreateThread(function()
             end
             if timeBelowSpeed >= maxTimeBelowSpeed and ourTeamType == 'driver' then
                 -- blow up
-                SetEntityInvincible(ourDriverVehicle, false)
-                NetworkExplodeVehicle(ourDriverVehicle, true, true, true)
+                SetEntityInvincible(GetVehiclePedIsIn(GetPlayerPed(-1), false), false)
+                SetEntityInvincible(GetVehiclePedIsIn(GetPlayerPed(-1), true), false)
+                NetworkExplodeVehicle(GetVehiclePedIsIn(GetPlayerPed(-1), false), true, true, true)
+                NetworkExplodeVehicle(GetVehiclePedIsIn(GetPlayerPed(-1), true), true, true, true)
+                timeBelowSpeed = 0
+                SetEntityInvincible(GetPlayerPed(-1), false)
                 EndLocation = GetEntityCoords(PlayerPedId())
                 if shouldNotifyAboutDeath then
                     if defenderName ~= '' then
-                        TriggerServerEvent('OnNotifyBlownUp',
-                                           GetPlayerName(PlayerId()), totalLife)
+                        --TriggerServerEvent('OnNotifyBlownUp',
+                        --                   GetPlayerName(PlayerId()), totalLife)
                     else
-                        TriggerServerEvent('OnNotifyBlownUp',
-                                           GetPlayerName(PlayerId()), totalLife)
+                        --TriggerServerEvent('OnNotifyBlownUp',
+                       --                    GetPlayerName(PlayerId()), totalLife)
                     end
                     shouldNotifyAboutDeath = false
                 end
@@ -267,20 +319,25 @@ Citizen.CreateThread(function()
                 SetTextOutline()
                 SetTextEntry("STRING")
                 SetTextCentre(1)
-                total_players = count_array(GetPlayers())
                 local distanceToFinalLocation = #(GetEntityCoords(PlayerPedId()) - endPoint)
+                local currentScore = totalLife * (totalPlayers * 1.68 - 1)
+                if currentScore < scoreToBeat then
+                    SetTextColour(128, 0, 0, 255)
+                end
+                local rankString = ''
+                local scoreToBeatString = ''
+                if currentRank ~= -1 then
+                    rankString = 'Rank #' .. currentRank .. (" (%.0f)"):format(scoreToBeat)
+                end
                 AddTextComponentString(
-                    ("Survived\n%.1f Seconds\n %.0f Score\n"):format(totalLife,
-                                                                   totalLife *
-                                                                       (total_players *
-                                                                           1.68 -
-                                                                           1)))
+                    ("Survived\n%.1f Seconds\n %.0f Score\n%s\n%s"):format(totalLife,
+                                                                   currentScore, rankString, scoreToBeatString))
                 DrawText(0.9, 0.1)
             end
             local speedinKMH = GetEntitySpeed(driverPed) * 3.6
             SetTextFont(0)
             SetTextProportional(1)
-            SetTextScale(0.0, 0.5)
+            SetTextScale(0.0, 1.0)
             if (GetGameTimer() - startTime) / 1000 < 15 or speedinKMH >=
                 minSpeedInKMH then
                 SetTextColour(0, 128, 0, 255)
@@ -295,23 +352,31 @@ Citizen.CreateThread(function()
             SetTextCentre(1)
             if (GetGameTimer() - startTime) / 1000 < 15 and ourTeamType ==
                 'driver' and showScoreboard == false then
-                AddTextComponentString(("Run From The Police\n Get to the airport to set a score!\n%.1f"):format(
+                AddTextComponentString(("Run From The Police\n Get to the airport to set a score!\nIf you explode your score is VOID!\n%.1f"):format(
                                            15 - (GetGameTimer() - startTime) /
                                                1000))
                 DrawText(0.5, 0.2)
             else
-                if timeBelowSpeed > 0 and ourTeamType == 'driver' then
-                    AddTextComponentString(
-                        ("%.1f"):format(maxTimeBelowSpeed - timeBelowSpeed))
-                    DrawText(0.5, 0.25)
+                if ourTeamType == 'driver' then
+                    if isLocalPlayerInVehicle == false then
+                        AddTextComponentString(
+                            ("%.1f"):format(timeRemainingOnFoot))
+                        DrawText(0.5, 0.25)
+                    end
+                    if timeBelowSpeed > 0 then
+                        AddTextComponentString(
+                            ("%.1f"):format(maxTimeBelowSpeed - timeBelowSpeed))
+                        DrawText(0.5, 0.25)
+                    end
                 end
+                
 
             end
             if 15 - (GetGameTimer() - startTime) / 1000 > 0 and totalLife < 15 and
                 ourTeamType ~= 'driver' and showScoreboard == false then
                 SetTextFont(1)
                 SetTextProportional(1)
-                SetTextScale(0.0, 0.5)
+                SetTextScale(0.0, 1.0)
                 SetTextColour(255, 0, 0, 255)
                 SetTextDropshadow(0, 0, 0, 0, 255)
                 SetTextEdge(2, 0, 0, 0, 150)
@@ -327,7 +392,7 @@ Citizen.CreateThread(function()
                                                                    1000))
                 elseif showScoreboard == false then
                     AddTextComponentString(
-                        ("Stop the truck!\n%.1f"):format(15 -
+                        ("Stop the truck from extracing at the airport!\n%.1f"):format(15 -
                                                              (GetGameTimer() -
                                                                  startTime) /
                                                              1000))
@@ -336,6 +401,11 @@ Citizen.CreateThread(function()
             end
         end
     end
+end)
+
+RegisterNetEvent("baseevents:onPlayerKilled")
+AddEventHandler('baseevents:onPlayerKilled', function(killer, reason)
+   
 end)
 
 AddEventHandler('onClientGameTypeStart', function()
@@ -359,6 +429,9 @@ AddEventHandler('onClientGameTypeStart', function()
     print('Requesting Start for ' .. GetPlayerName(PlayerId()) .. ' in progress')
     TriggerServerEvent('OnRequestJoinInProgress', GetPlayerServerId(PlayerId()))
     TriggerServerEvent('OnPlayerSpawned')
+    local ped = PlayerPedId()
+	SetCanAttackFriendly(ped, true, true)
+	NetworkSetFriendlyFireOption(true)
 
 end)
 
@@ -444,6 +517,10 @@ AddEventHandler('OnUpdateMinSpeed', function(NewMinSpeed, newMaxTimeBelowSpeed)
     maxTimeBelowSpeed = newMaxTimeBelowSpeed
 end)
 
+RegisterNetEvent('OnUpdateTotalPlayers')
+AddEventHandler('OnUpdateTotalPlayers',
+                function(inTotalPlayers) totalPlayers = inTotalPlayers end)
+
 RegisterNetEvent('OnUpdateDefender')
 AddEventHandler('OnUpdateDefender',
                 function(NewDefender) defenderName = NewDefender end)
@@ -451,7 +528,28 @@ AddEventHandler('OnUpdateDefender',
 AddEventHandler('onHuntingPackStart',
                 function(teamtype, spawnPos, spawnRot, driver, inSelectedSpawn)
     print("Client_HuntingPackStart")
+    SetEntityHealth(GetPlayerPed(-1), 1000)
+    local model = 'a_f_m_beach_01'
+    if teamtype == 'driver' then
+        model = 's_m_y_fireman_01'
+    elseif teamtype == 'defender' then
+        model = 's_m_m_paramedic_01'
+    else
+        model = 's_m_y_cop_01'
+    end
+    if IsModelInCdimage(model) and IsModelValid(model) then
+    RequestModel(model)
+    while not HasModelLoaded(model) do
+        Citizen.Wait(0)
+    end
+    SetPlayerModel(PlayerId(), model)
+    SetModelAsNoLongerNeeded(model)
+    end
+   
     -- account for the argument not being passed
+    timeRemainingOnFoot = 30
+    currentRank = -1
+    scoreToBeat = -1
     selectedSpawn = inSelectedSpawn
     totalLife = 0
     respawnCooldown = 30
@@ -471,12 +569,11 @@ AddEventHandler('onHuntingPackStart',
     if math.random() < 0.01 then possibleAttackerVehicles = {'Riot'} end
 
     RemoveAllPedWeapons(GetPlayerPed(-1), true)
-    total_players = count_array(GetPlayers())
-    if total_players <= 1 then
+    if totalPlayers <= 1 then
         possibleDriverVehicles = {'Firetruk'}
-    elseif total_players <= 2 then
+    elseif totalPlayers <= 2 then
         --possibleDriverVehicles = {'camper'}
-    elseif total_players <= 5 then
+    elseif totalPlayers <= 5 then
         possibleDriverVehicles = {'Firetruk'}
     end
 
@@ -502,7 +599,7 @@ end)
 
 AddEventHandler('SpawnVehicle', function(vehicleName, inSpawnPos, inSpawnRot)
 
-    car = GetVehiclePedIsIn(GetPlayerPed(-1), false)
+    car = GetVehiclePedIsUsing(GetPlayerPed(-1), false)
     print(car)
     if car ~= 0 then
         SetEntityAsMissionEntity(car, false, false) 
@@ -540,8 +637,8 @@ AddEventHandler('SpawnVehicle', function(vehicleName, inSpawnPos, inSpawnRot)
     ourDriverVehicle = vehicle
     SetPedIntoVehicle(playerPed, vehicle, -1)
 
-    SetVehicleDoorsLocked(vehicle, 4)
-    SetVehicleDoorsLockedForPlayer(vehicle, PlayerId(), true)
+    --SetVehicleDoorsLocked(vehicle, 4)
+    --SetVehicleDoorsLockedForPlayer(vehicle, PlayerId(), true)
 
     -- give the vehicle back to the game (this'll make the game decide when to despawn the vehicle)
     SetEntityAsNoLongerNeeded(vehicle)
@@ -661,7 +758,11 @@ AddEventHandler('OnClearRanks', function()
     }
 end)
 
-AddEventHandler('OnUpdateRanks', function(name, lifetime, players)
+AddEventHandler('OnUpdateRanks', function(name, lifetime, players, rank)
+    if name == GetPlayerName(PlayerId()) then
+        scoreToBeat = lifetime * (players * 1.68 - 1)
+        currentRank = rank
+    end
     for _, player in pairs(ranks) do
         if lifetime * (players * 1.68 - 1) > player.points *
             (player.players * 1.68 - 1) then
@@ -687,8 +788,7 @@ Citizen.CreateThread(function()
             SetTextOutline()
             SetTextEntry("STRING")
             SetTextCentre(1)
-            total_players = count_array(GetPlayers())
-            AddTextComponentString(selectedSpawn.name .. " Player Leaderboard")
+            AddTextComponentString(selectedSpawn.name .. " Player Leaderboard \n(" .. totalPlayers .. " Players In Game)")
             DrawText(0.5, 0.1)
             DrawPlayers()
         end
@@ -718,7 +818,7 @@ function DrawPlayers()
             SetTextEntry("STRING")
             SetTextCentre(1)
             AddTextComponentString(player.name)
-            DrawText(0.45, 0.13 + Yoffset * player.rank)
+            DrawText(0.35, 0.2 + Yoffset * player.rank)
             SetTextFont(0)
             SetTextProportional(0)
             SetTextScale(0.0, 0.25)
@@ -739,7 +839,7 @@ function DrawPlayers()
             SetTextCentre(1)
             AddTextComponentString(("%.0f Seconds\n%i Attackers"):format(
                                        player.points, player.players - 1))
-            DrawText(0.50, 0.13 + Yoffset * player.rank)
+            DrawText(0.50, 0.2 + Yoffset * player.rank)
             SetTextFont(0)
             SetTextProportional(0)
             SetTextScale(0.0, 0.3)
@@ -761,7 +861,7 @@ function DrawPlayers()
             AddTextComponentString(("%0.0f Score"):format(player.points *
                                                               (player.players *
                                                                   1.68 - 1)))
-            DrawText(0.55, 0.13 + Yoffset * player.rank)
+            DrawText(0.65, 0.2 + Yoffset * player.rank)
         end
     end
 end
@@ -799,4 +899,4 @@ RegisterCommand('scoreboard', function(source, args, rawcommand)
 end, false)
 
 RegisterKeyMapping('respawnbtn', 'Respawn', "keyboard", "F1")
-RegisterKeyMapping('scoreboard', 'Scoreboard', 'keyboard', 'Tab')
+RegisterKeyMapping('scoreboard', 'Scoreboard', 'keyboard', 'CAPITAL')

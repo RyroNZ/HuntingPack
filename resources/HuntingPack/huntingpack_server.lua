@@ -177,7 +177,7 @@ AddEventHandler('OnRequestedStart', function(startPoint)
             TriggerClientEvent('onHuntingPackStart', playerId, 'driver',
                                selectedSpawn.driverSpawnVec, selectedSpawn.driverSpawnRot, driverName, selectedSpawn)
             maxTimeBelowSpeed = math.clamp(total_players * 4, 6, 12)
-            if total_players == 1 then maxTimeBelowSpeed = 90000 end
+            if total_players == 1 then maxTimeBelowSpeed = 60 end
             TriggerClientEvent('OnUpdateMinSpeed', playerId, 45,
                                maxTimeBelowSpeed)
             send_global_message('^3' .. total_players ..
@@ -338,33 +338,52 @@ AddEventHandler('OnNotifyHighScore', function(Name, LifeTime)
 
     send_global_message('^6' .. Name .. ' has successfully extracted!')
 
-  
+    local isOnLeaderboard = false
+    local hasHigherScoreOnLeaderboard = false
+    local previousRankIdx = -1
     oldRanks = deepcopy(ranks)
     total_players = count_array(GetSpawnedPlayers())
     for i, player in pairs(ranks) do
-        if LifeTime * (total_players * 1.68 - 1) > player.points *
-            (player.players * 1.68 - 1) then
-            ranks[i].points = LifeTime
-            ranks[i].name = Name
-            ranks[i].players = total_players
-            newhighScoreIdx = i
+        if LifeTime * (total_players * 1.68 - 1) < player.points *
+            (player.players * 1.68 - 1) and Name == player.name then
             send_global_message(Name ..
-                                    ' just received a new high score! Rank: ' ..
-                                    ranks[i].rank .. ' Life: ' .. LifeTime)
+                                    ' score was lower than their previous score on the leaderboard. Score will not be counted.')
+            hasHigherScoreOnLeaderboard = true
+        end
+        if Name == player.name then
+            table.remove(ranks, i)
+            isOnLeaderboard = true
+            previousRankIdx = i
             break
         end
     end
-    for i, player in pairs(ranks) do
-        if i > newhighScoreIdx and newhighScoreIdx ~= -1 then
-            if oldRanks[i - 1].points ~= 0 then
-                ranks[i].points = oldRanks[i - 1].points
-                ranks[i].name = oldRanks[i - 1].name
-                ranks[i].players = oldRanks[i - 1].players
+
+    local replacedPlayerScore = nil
+
+    if hasHigherScoreOnLeaderboard == false then
+        for i, player in pairs(ranks) do
+            if LifeTime * (total_players * 1.68 - 1) > player.points *
+                (player.players * 1.68 - 1) then
+                local rank = {name = Name, points = LifeTime, players = total_players}
+                print(rank.points)
+                table.insert(ranks, i, rank)
+                newhighScoreIdx = i
+                send_global_message(Name ..
+                                        ' just received a new high score! Rank: ' ..
+                                        i .. ' Life: ' .. LifeTime)
+                break
             end
         end
-    end
 
-    saveTable(ranks, 'ranks' .. selectedSpawn.name .. '.json')
+        for i, player in pairs(ranks) do
+            if i > newhighScoreIdx and newhighScoreIdx ~= -1 and Name == ranks[i].name then
+                table.remove(ranks, i)
+                i = i - 1
+            end
+        end
+
+        saveTable(ranks, 'ranks' .. selectedSpawn.name .. '.json')
+    end
 
     for _, playerId in ipairs(GetSpawnedPlayers()) do
         TriggerClientEvent('OnGameEnded', playerId)
@@ -373,9 +392,24 @@ AddEventHandler('OnNotifyHighScore', function(Name, LifeTime)
 
 end)
 
+
 RegisterNetEvent('OnNotifyBlownUp')
 AddEventHandler('OnNotifyBlownUp', function(Name, LifeTime)
     send_global_message('Driver has blown up! Total Life: ' .. LifeTime ..
+                            ' Seconds')
+    gameStarted = false
+    timerCountdown = 10
+    newhighScoreIdx = -1
+
+    for _, playerId in ipairs(GetSpawnedPlayers()) do
+        TriggerClientEvent('OnGameEnded', playerId)
+    end
+
+end)
+
+RegisterNetEvent('OnNotifyKilled')
+AddEventHandler('OnNotifyKilled', function(Name, LifeTime)
+    send_global_message('Driver has been killed! Total Life: ' .. LifeTime ..
                             ' Seconds')
     gameStarted = false
     timerCountdown = 10
@@ -392,6 +426,7 @@ local function save_score(name, score) file = io.open('scores.txt') end
 Citizen.CreateThread(function()
     while true do
         total_players = count_array(GetSpawnedPlayers())
+        TriggerClientEvent('OnUpdateTotalPlayers', -1, total_players)
         if total_players < 2 and gameStarted then
             timerCountdown = 30
             gameStarted = false
@@ -429,7 +464,7 @@ Citizen.CreateThread(function()
                 TriggerClientEvent('OnClearRanks', playerId)
                 for _, player in pairs(ranks) do
                     TriggerClientEvent('OnUpdateRanks', playerId, player.name,
-                                    player.points, player.players)
+                                    player.points, player.players, _)
                 end
             end
         end
