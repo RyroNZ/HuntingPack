@@ -4,7 +4,7 @@ defenders = {}
 attackers = {}
 afkplayers = {}
 timerCountdown = 30
-gameStarted = false
+local gameStarted = false
 local selectedSpawn = nil
 local respawnRot = 0
 local defaultLocation =
@@ -177,7 +177,7 @@ AddEventHandler('OnRequestedStart', function(startPoint)
             send_global_message(
                 ('^1%s was selected as the driver!'):format(name))
             TriggerClientEvent('onHuntingPackStart', playerId, 'driver',
-                               selectedSpawn.driverSpawnVec, selectedSpawn.driverSpawnRot, driverName, selectedSpawn)
+                               selectedSpawn.driverSpawnVec, selectedSpawn.driverSpawnRot, driverName, selectedSpawn, true)
             maxTimeBelowSpeed = 30
             if total_players == 1 then maxTimeBelowSpeed = 30 end
             TriggerClientEvent('OnUpdateMinSpeed', playerId, 45,
@@ -202,13 +202,13 @@ AddEventHandler('OnRequestedStart', function(startPoint)
                                     defenderSpawn +
                                        vector3(math.random(-10, 10),
                                                math.random(-10, 10), 0),
-                                   selectedSpawn.driverSpawnRot, driverName, selectedSpawn)
+                                   selectedSpawn.driverSpawnRot, driverName, selectedSpawn, true)
             else
                 TriggerClientEvent('onHuntingPackStart', playerId, 'attacker',
                                    attackerSpawn +
                                        vector3(math.random(-10, 10),
                                                math.random(-10, 10), 0),
-                                   selectedSpawn.attackerSpawnRot, driverName, selectedSpawn)
+                                   selectedSpawn.attackerSpawnRot, driverName, selectedSpawn, true)
             end
         end
         count = count + 1
@@ -239,6 +239,13 @@ AddEventHandler('OnNewRespawnPoint',
     respawnPoint = newRespawnLocation
     respawnRot = newRespawnRotation
     print('Received new spawn location ' .. respawnPoint)
+end)
+
+RegisterNetEvent("OnNotifyDriverBlipVisible")
+AddEventHandler('OnNotifyDriverBlipVisible', function()
+
+    TriggerClientEvent('OnNotifyDriverBlipVisible', -1)
+
 end)
 
 RegisterNetEvent("OnMarkedAFK")
@@ -285,13 +292,13 @@ AddEventHandler('OnRequestJoinInProgress', function(playerId)
                                    respawnPoint +
                                        vector3(math.random(-10, 10),
                                                math.random(-10, 10), 0),
-                                   respawnRot, driverName)
+                                   respawnRot, driverName, selectedSpawn, gameStarted)
             else
                 TriggerClientEvent('onHuntingPackStart', playerId, 'attacker',
                                    respawnPoint +
                                        vector3(math.random(-10, 10),
                                                math.random(-10, 10), 0),
-                                   respawnRot, driverName)
+                                   respawnRot, driverName, selectedSpawn, gameStarted)
             end
         else
             if source == defenderPlayerId then
@@ -299,13 +306,13 @@ AddEventHandler('OnRequestJoinInProgress', function(playerId)
                                     defenderSpawn +
                                        vector3(math.random(-10, 10),
                                                math.random(-10, 10), 0),
-                                   respawnRot, driverName)
+                                   respawnRot, driverName, selectedSpawn, gameStarted)
             else
                 TriggerClientEvent('onHuntingPackStart', playerId, 'attacker',
                     attackerSpawn +
                                        vector3(math.random(-10, 10),
                                                math.random(-10, 10), 0),
-                                   respawnRot, driverName)
+                                   respawnRot, driverName, selectedSpawn, gameStarted)
             end
         end
     end
@@ -407,6 +414,11 @@ AddEventHandler('OnNotifyBlownUp', function(Name, LifeTime)
         TriggerClientEvent('OnGameEnded', playerId)
     end
 
+end)
+
+RegisterNetEvent('OnNotifyDriverBlipArea')
+AddEventHandler('OnNotifyDriverBlipArea', function(enabled, posX, posY, posZ)
+    TriggerClientEvent('OnNotifyDriverBlipArea', -1, enabled, posX, posY, posZ)
 end)
 
 RegisterNetEvent('OnNotifyKilled')

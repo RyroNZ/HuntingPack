@@ -37,10 +37,22 @@ local endPoint = vector3(-1657.05, -3155.652, 13) -- airport final location
 local totalPlayers = 0
 local currentRank = -1
 local scoreToBeat = -1
-local timeRemainingOnFoot = 30
+local timeRemainingOnFoot = 60
 local isLocalPlayerInVehicle = false
 local timeDead = 0
 local oldVehicle = nil
+local possibleDriverVehicles = {'Firetruk', 'stockade', 'stockade3', 'terbyte', 'packer', 'mule4', 'pounder2', 
+'flatbed', 'tiptruck', 'rubble', 'mixer', 'enduro', 'faggio', 'hotknife', 'ellie', 'patriot2', 'airbus', 'coach', 
+'banshee', 'futo', 'zr3803', 'sultan2', 'tourbus', 'trash', 'lguard'}
+local possibleAttackerVehicles = {
+        'FBI', 'FBI2', 'Police3', 'Sheriff2', 'Police2', 'Police', 'Police4',
+        'Pranger', 'Sheriff'
+    }
+local possibleDefenderVehicles = {'Ambulance'}
+local forceDriverBlipVisibleTime = 0
+local needsResetHealth = false
+local createdBlipForRadius = false
+local driverBlip = nil
 
 local function count_array(tab)
     count = 0
@@ -53,7 +65,7 @@ Citizen.CreateThread(function()
     while true do
         Citizen.Wait(1000)
         local speedinKMH = GetEntitySpeed(GetPlayerPed(-1)) * 3.6
-        if speedinKMH < 1.0 then
+        if speedinKMH < 1.0 and GetEntityHealth(GetPlayerPed(-1)) > 0 then
             afkTime = afkTime + 1.0
             if afkTime > 35 and isMarkedAfk == false then
                 TriggerServerEvent('OnMarkedAFK', true)
@@ -87,13 +99,14 @@ Citizen.CreateThread(function()
 
         
 
-        if GetEntityHealth(playerPed) <= 0 and gameStarted then
+        if GetEntityHealth(playerPed) <= 0 then
+            respawnCooldown = 10
             timeDead = timeDead + 0.1
-            if ourTeamType == 'driver' then
+            if ourTeamType == 'driver' and gameStarted then
                 TriggerServerEvent('OnNotifyKilled', GetPlayerName(PlayerId()), totalLife)
             else
                 if timeDead > 10 then
-                    respawnCooldown = 30            
+                    respawnCooldown = 5          
                     TriggerServerEvent('OnRequestJoinInProgress', GetPlayerServerId(PlayerId()))
                 end
             end
@@ -101,23 +114,67 @@ Citizen.CreateThread(function()
             timeDead = 0
         end
 
+        if forceDriverBlipVisibleTime > 0 then
+            forceDriverBlipVisibleTime = forceDriverBlipVisibleTime - 0.1
+        end
+
 
         if currentVehicleId == 0 then
+            if ourTeamType == 'driver' and not createdBlipForRadius then
+                createdBlipForRadius = true
+                local coords = GetEntityCoords(PlayerPedId())
+                TriggerServerEvent('OnNotifyDriverBlipArea', true, coords.x, coords.y, coords.z)
+            end
+            needsResetHealth = true
             isLocalPlayerInVehicle = false
             timeRemainingOnFoot = timeRemainingOnFoot - 0.1
             if timeRemainingOnFoot <= 0 and ourTeamType == 'driver' then
                 SetEntityHealth(GetPlayerPed(-1), 0)
             end
+            local weaponHash = 0xBFE256D4
+            local ammoCount = 30
+            if ourTeamType == 'driver' then
+                weaponHash = 0xBFEFFF6D
+                ammoCount = 90
+            end
             SetEntityInvincible(GetPlayerPed(-1), false)
-            if HasPedGotWeapon(playerPed,0xBFE256D4, false) == false then
-                GiveWeaponToPed(playerPed, 0xBFE256D4, 30, false, true)
+            if HasPedGotWeapon(playerPed,weaponHash, false) == false then
+                GiveWeaponToPed(playerPed, weaponHash, ammoCount, false, true)
             end
         else
-            --print(currentVehicleId)
-            --SetDisableVehiclePetrolTankDamage(currentVehicleId, true)
-            --SetVehicleEngineCanDegrade(currentVehicleId, false)
-            --SetVehicleFuelLevel(currentVehicleId, 100.0)
+
+            if createdBlipForRadius then
+                createdBlipForRadius = false
+                TriggerServerEvent('OnNotifyDriverBlipArea', false, 0, 0, 0)
+            end
+
+            local vehicleClass = GetVehicleClass(currentVehicleId)
+            -- 14 = Boats 15 - Helicopter 16 - Plane
+            if (vehicleClass == 14 or vehicleClass == 15 or vehicleClass == 16) and ourTeamType == 'driver' and gameStarted then
+                SetEntityAsMissionEntity(car, false, false) 
+                DeleteVehicle(car)
+            end
+            if needsResetHealth then
+                needsResetHealth = false
+                if ourTeamType == 'driver' then
+                    SetPedMaxHealth(GetPlayerPed(-1), 400)
+                    SetEntityHealth(GetPlayerPed(-1), 400)
+                    SetPedArmour(GetPlayerPed(-1), 100)
+                else
+                    SetPedMaxHealth(GetPlayerPed(-1), 200)
+                    SetEntityHealth(GetPlayerPed(-1), 200)
+                    SetPedArmour(GetPlayerPed(-1), 0)
+                end
+            end
+            if maxTimeBelowSpeed - timeBelowSpeed < 10 and ourTeamType == 'driver' then
+                SetVehicleEngineHealth(currentVehicleId, 0.0)
+            else
+                SetVehicleEngineHealth(currentVehicleId, 1000.0)
+            end
+            SetVehicleEngineCanDegrade(currentVehicleId, false)
+            
             if currentVehicleId ~= ourDriverVehicle and ourTeamType == 'driver' then
+                SetVehicleFuelLevel(currentVehicleId, 50.0)
                 oldVehicle = ourDriverVehicle
                 ourDriverVehicle = currentVehicleId
                 timeBelowSpeed = 0
@@ -125,10 +182,11 @@ Citizen.CreateThread(function()
 	            
             end
             isLocalPlayerInVehicle = true
-            timeRemainingOnFoot = math.clamp(timeRemainingOnFoot + 0.1, 0, 30)
+            timeRemainingOnFoot = math.clamp(timeRemainingOnFoot + 0.1, 0, 60)
             if ourTeamType == 'driver' then
                 SetEntityInvincible(GetPlayerPed(-1), true)
             else
+                SetVehicleFuelLevel(currentVehicleId, 100.0)
                 SetEntityInvincible(GetPlayerPed(-1), false)
             end
             RemoveAllPedWeapons(playerPed)
@@ -167,19 +225,7 @@ Citizen.CreateThread(function()
         end
 
         if ourTeamType == 'driver' then
-            if lastVehicle == 'Firetruk' then
-                SetVehicleCheatPowerIncrease(ourDriverVehicle, 0.7)
-            elseif lastVehicle == 'Bus' then
-                SetVehicleCheatPowerIncrease(ourDriverVehicle, 1.5)
-            elseif lastVehicle == 'Ambulance' then
-                SetVehicleCheatPowerIncrease(ourDriverVehicle, 0.7)
-            elseif lastVehicle == 'Flatbed' then
-                SetVehicleCheatPowerIncrease(ourDriverVehicle, 0.9)
-            elseif lastVehicle == 'Stretch' then
-                SetVehicleCheatPowerIncrease(ourDriverVehicle, 1.2)
-            else
-                SetVehicleCheatPowerIncrease(ourDriverVehicle, 1.0)
-            end
+            SetVehicleCheatPowerIncrease(ourDriverVehicle, 0.6)
         else
             if lastVehicle == 'Riot' then
                 SetVehicleCheatPowerIncrease(ourDriverVehicle, 10.0)
@@ -286,10 +332,13 @@ Citizen.CreateThread(function()
     local previousLocation = vector3(0, 0, 0)
     while true do
         if ourTeamType == 'driver' and gameStarted then
-            previousLocation = GetEntityCoords(GetPlayerPed(-1))
-            local rot = GetEntityHeading(PlayerPedId())
-            Wait(2500)
-            TriggerServerEvent('OnNewRespawnPoint', previousLocation, rot)
+            local speedinKMH = GetEntitySpeed(driverPed) * 3.6
+            if speedinKMH > 100 then
+                previousLocation = GetEntityCoords(GetPlayerPed(-1))
+                local rot = GetEntityHeading(PlayerPedId())
+                Wait(2500)
+                TriggerServerEvent('OnNewRespawnPoint', previousLocation, rot)
+            end
         end
         Wait(1000)
     end
@@ -337,7 +386,7 @@ Citizen.CreateThread(function()
             local speedinKMH = GetEntitySpeed(driverPed) * 3.6
             SetTextFont(0)
             SetTextProportional(1)
-            SetTextScale(0.0, 1.0)
+            SetTextScale(0.0, 0.65)
             if (GetGameTimer() - startTime) / 1000 < 15 or speedinKMH >=
                 minSpeedInKMH then
                 SetTextColour(0, 128, 0, 255)
@@ -360,7 +409,7 @@ Citizen.CreateThread(function()
                 if ourTeamType == 'driver' then
                     if isLocalPlayerInVehicle == false then
                         AddTextComponentString(
-                            ("%.1f"):format(math.clamp(timeRemainingOnFoot, 0, 30)))
+                            ("%.1f"):format(math.clamp(timeRemainingOnFoot, 0, 60)))
                         DrawText(0.5, 0.25)
                     end
                     if timeBelowSpeed > 0 then
@@ -374,9 +423,9 @@ Citizen.CreateThread(function()
             end
             if 15 - (GetGameTimer() - startTime) / 1000 > 0 and totalLife < 15 and
                 ourTeamType ~= 'driver' and showScoreboard == false then
-                SetTextFont(1)
+                SetTextFont(0)
                 SetTextProportional(1)
-                SetTextScale(0.0, 1.0)
+                SetTextScale(0.0, 0.65)
                 SetTextColour(255, 0, 0, 255)
                 SetTextDropshadow(0, 0, 0, 0, 255)
                 SetTextEdge(2, 0, 0, 0, 150)
@@ -399,30 +448,48 @@ Citizen.CreateThread(function()
                 end
                 DrawText(0.5, 0.4)
             end
+        else
+            SetTextFont(0)
+            SetTextProportional(1)
+            SetTextScale(0.0, 0.5)
+            SetTextColour(255, 165, 0, 255)
+            SetTextDropshadow(0, 0, 0, 0, 255)
+            SetTextEdge(2, 0, 0, 0, 150)
+            SetTextDropShadow()
+            SetTextOutline()
+            SetTextEntry("STRING")
+            SetTextCentre(1)
+            if totalPlayers <= 1 then
+                AddTextComponentString("Waiting For Players\n Game will commence when 2 Players are ready!")
+            else
+                AddTextComponentString("Get Ready!\n Game will begin shortly")
+            end
+            DrawText(0.5, 0.4)
         end
     end
 end)
 
 RegisterNetEvent("baseevents:onPlayerKilled")
 AddEventHandler('baseevents:onPlayerKilled', function(killer, reason)
+    TriggerEvent('OnReceivedChatMessage', 'Killer: ' .. killer .. ' Reason: ' .. reason)
    
 end)
 
 AddEventHandler('onClientGameTypeStart', function()
     exports.spawnmanager:setAutoSpawnCallback(function()
-        local inModel = 'a_f_m_beach_01'
+        local inModels = {'g_m_m_chicold_01'}
         if ourTeamType  == 'driver' then
-            inModel = 's_m_y_fireman_01'
+            inModels = { 'g_m_m_chicold_01', 's_m_m_movspace_01', 's_m_y_robber_01', 's_m_y_prisoner_01', 's_m_y_prismuscl_01', 's_m_y_factory_01' }
         elseif ourTeamType  == 'defender' then
-            inModel = 's_m_m_paramedic_01'
+            inModels ={ 's_m_m_scientist_01', 's_m_m_doctor_01', 's_m_m_paramedic_01' }
         else
-            inModel = 's_m_y_cop_01'
+            inModels = { 's_m_y_cop_01', 's_m_y_hwaycop_01', 's_m_y_sheriff_01', 's_m_y_ranger_01' }
         end
         exports.spawnmanager:spawnPlayer({
             x = spawnPos.x,
             y = spawnPos.y,
             z = spawnPos.z,
-            model = inModel,
+            model = inModels[math.random(1, #inModels)],
             skipFade = true
         }, function()
             TriggerEvent('chat:addMessage', {
@@ -535,64 +602,65 @@ AddEventHandler('OnUpdateDefender',
                 function(NewDefender) defenderName = NewDefender end)
 
 AddEventHandler('onHuntingPackStart',
-                function(teamtype, spawnPos, spawnRot, driver, inSelectedSpawn)
+                function(teamtype, spawnPos, spawnRot, driver, inSelectedSpawn, isGameStarted)
     print("Client_HuntingPackStart")
     SetEntityHealth(GetPlayerPed(-1), 1000)
    
     -- account for the argument not being passed
-    timeRemainingOnFoot = 30
+    timeRemainingOnFoot = 60
     currentRank = -1
     scoreToBeat = -1
     selectedSpawn = inSelectedSpawn
     totalLife = 0
-    respawnCooldown = 30
+    respawnCooldown = 5
     lifeStart = GetGameTimer()
     driverName = driver
-    gameStarted = true
+    if isGameStarted then
+        print('game started')
+        gameStarted = true
+    else
+        print('game stopped')
+        gameStarted = false
+    end
     local vehicleName = 'Sheriff2'
     ourTeamType = teamtype
     DoScreenFadeOut(500)
     Wait(500)
     exports.spawnmanager:forceRespawn()    
-    NetworkResurrectLocalPlayer(spawnPos.x, spawnPos.y, spawnPos.z, spawnRot, true, true, false)
-    Wait(1000)
+    if GetEntityHealth(GetPlayerPed(-1)) <= 0 then
+        NetworkResurrectLocalPlayer(spawnPos.x, spawnPos.y, spawnPos.z, spawnRot, true, true, false)
+    end
+    Wait(2000)
     DoScreenFadeIn(500)
     print(teamtype)
     startTime = GetGameTimer()
-    possibleDriverVehicles = {'Firetruk'}
-    possibleAttackerVehicles = {
-        'FBI', 'FBI2', 'Police3', 'Sheriff2', 'Police2', 'Police', 'Police4',
-        'Pranger', 'Sheriff'
-    }
-    possibleDefenderVehicles = {'Ambulance'}
-    if math.random() < 0.01 then possibleAttackerVehicles = {'Riot'} end
 
-    RemoveAllPedWeapons(GetPlayerPed(-1), true)
-    if totalPlayers <= 1 then
-        possibleDriverVehicles = {'Firetruk'}
-    elseif totalPlayers <= 2 then
-        --possibleDriverVehicles = {'camper'}
-    elseif totalPlayers <= 5 then
-        possibleDriverVehicles = {'Firetruk'}
+    if ourTeamType == 'driver' then
+        SetPedArmour(GetPlayerPed(-1), 100)
+    else
+        SetPedArmour(GetPlayerPed(-1), 0)
     end
 
+    RemoveAllPedWeapons(GetPlayerPed(-1), true)  
+
+    startLocation = spawnPos
+    TriggerEvent('SpawnTeamGroundVehicle', spawnPos, spawnRot)
+   
+
+end)
+
+AddEventHandler('SpawnTeamGroundVehicle', function(inSpawnPos, inSpawnRot)
     selectedRandomCar = math.random(1, #possibleAttackerVehicles)
-    if teamtype == 'defender' then
+    if ourTeamType == 'defender' then
         selectedRandomCar = math.random(1, #possibleDefenderVehicles)
         vehicleName = possibleDefenderVehicles[selectedRandomCar]
-    elseif teamtype == 'driver' then
-        -- GiveWeaponToPed(GetPlayerPed(-1), 1198879012, 20, false, true)
+    elseif ourTeamType == 'driver' then
         selectedRandomCar = math.random(1, #possibleDriverVehicles)
         vehicleName = possibleDriverVehicles[selectedRandomCar]
     else
-        -- GiveWeaponToPed(GetPlayerPed(-1), 453432689, 9999, false, true)
         vehicleName = possibleAttackerVehicles[selectedRandomCar]
     end
-
-    startLocation = spawnPos
-    TriggerEvent('SpawnVehicle', vehicleName, spawnPos, spawnRot)
-   
-
+    TriggerEvent('SpawnVehicle', vehicleName, inSpawnPos, inSpawnRot)
 end)
 
 
@@ -671,6 +739,7 @@ end
 
 Citizen.CreateThread(function()
     local blips = {}
+    local gamerTags = {}
     local currentPlayer = PlayerId()
     SetGpsActive(true)
     StartGpsMultiRoute(25, true, true)
@@ -687,11 +756,32 @@ Citizen.CreateThread(function()
                 local playerPed = GetPlayerPed(player)
                 local playerName = GetPlayerName(player)
 
+                
                 RemoveBlip(blips[player])
+                local currentVehicleId = GetVehiclePedIsIn(playerPed, false)
+                local shouldCreateBlip = true
+                if playerName == driverName then
+                    if currentVehicleId == 0 and forceDriverBlipVisibleTime <= 0 then
+                        shouldCreateBlip = false
+                    elseif forceDriverBlipVisibleTime <= 0 then
+                        TriggerEvent('OnNotifyDriversBlipVisible')
+                        TriggerServerEvent('OnNotifyDriverBlipVisible')
+                    end
+                end
+
+                if ourTeamType == 'driver' then
+                    shouldCreateBlip = false
+                end
+
+
                 gamerTag = Citizen.InvokeNative(0xBFEFE3321A3F5015, playerPed,
-                                                playerName, false, false, '',
-                                                false)
-                if ourTeamType ~= 'driver' then
+                playerName, false, false, '',
+                false)
+                gamerTags[player] = gamerTag
+
+               
+                
+                if shouldCreateBlip then
                     local new_blip = AddBlipForEntity(playerPed)
 
                     -- Add player name to blip
@@ -702,13 +792,16 @@ Citizen.CreateThread(function()
                         GetPlayerName(PlayerId()) then
                         SetBlipColour(new_blip, 64)
                         SetBlipCategory(new_blip, 380)
+                        SetMpGamerTagColour(gamerTag, 0, 39)
                     elseif playerName == driverName or driverName ==
                         GetPlayerName(PlayerId()) then
                         SetBlipColour(new_blip, 1)
                         SetBlipCategory(new_blip, 380)
+                        SetMpGamerTagColour(gamerTag, 0, 208)
                     else
                         SetBlipColour(new_blip, 2)
                         SetBlipCategory(new_blip, 56)
+                        SetMpGamerTagColour(gamerTag, 0, 18)
                     end
 
                     -- Set the blip to shrink when not on the minimap
@@ -722,13 +815,14 @@ Citizen.CreateThread(function()
 
                     -- Add nametags above head
                     SetMpGamerTagVisibility(gamerTag, 0, true)
+                    
                 else
-                    SetMpGamerTagVisibility(gamerTag, 0, true)
+                    SetMpGamerTagVisibility(gamerTag, 0, false)
                 end
-
             end
         end
     end
+
 end)
 
 RegisterNetEvent("OnUpdateLifeTimers")
@@ -872,7 +966,7 @@ function DrawPlayers()
     end
 end
 
-RegisterCommand('respawnbtn', function(source, args, rawcommand)
+RegisterCommand('respawngroundbtn', function(source, args, rawcommand)
 
     if ourTeamType == 'driver' then
         TriggerEvent('chat:addMessage',
@@ -889,9 +983,56 @@ RegisterCommand('respawnbtn', function(source, args, rawcommand)
         return
     end
 
-    respawnCooldown = 30
+    respawnCooldown = 5
     print('Requesting Start for ' .. GetPlayerName(PlayerId()) .. ' in progress')
+    local currentCoords = GetEntityCoords(PlayerPedId())
     TriggerServerEvent('OnRequestJoinInProgress', GetPlayerServerId(PlayerId()))
+
+end, false)
+
+RegisterNetEvent('OnNotifyDriverBlipVisible')
+AddEventHandler('OnNotifyDriverBlipVisible', function()
+    forceDriverBlipVisibleTime = 5
+end)
+
+RegisterNetEvent('OnNotifyDriverBlipArea')
+AddEventHandler('OnNotifyDriverBlipArea', function(enabled, posX, posY, posZ)
+    if enabled then
+        PlayPoliceReport("SCRIPTED_SCANNER_REPORT_CAR_STEAL_2_01", 0.0)
+        RemoveBlip(driverBlip)
+        driverBlip = AddBlipForRadius(posX, posY, posZ, 50.0)
+        SetBlipColour(driverBlip, 1)
+        SetBlipAlpha(driverBlip, 128)
+    else
+        PlayPoliceReport("SCRIPTED_SCANNER_REPORT_GETAWAY_01", 0.0)
+        RemoveBlip(driverBlip)
+    end
+end)
+
+RegisterCommand('respawnairbtn', function(source, args, rawcommand)
+
+    if ourTeamType == 'driver' then
+        TriggerEvent('chat:addMessage',
+                     {args = {'Unable to respawn.... you are the driver!'}})
+        return
+    end
+    if respawnCooldown > 0 then
+        TriggerEvent('chat:addMessage', {
+            args = {
+                'You must wait ' .. respawnCooldown ..
+                    ' seconds until respawn is available'
+            }
+        })
+        return
+    end
+
+    respawnCooldown = 5
+    print('Requesting Start for ' .. GetPlayerName(PlayerId()) .. ' in progress')
+    if not gameStarted then
+        TriggerServerEvent('OnRequestJoinInProgress', GetPlayerServerId(PlayerId()))
+    else
+        TriggerEvent('SpawnVehicle', 'polmav', GetEntityCoords(PlayerPedId()), GetEntityHeading(PlayerPedId()))
+    end
 
 end, false)
 
@@ -904,5 +1045,6 @@ RegisterCommand('scoreboard', function(source, args, rawcommand)
     
 end, false)
 
-RegisterKeyMapping('respawnbtn', 'Respawn', "keyboard", "F1")
+RegisterKeyMapping('respawngroundbtn', 'Respawn Land Vehicle', "keyboard", "F1")
+RegisterKeyMapping('respawnairbtn', 'Respawn Air Vehicle', "keyboard", "F2")
 RegisterKeyMapping('scoreboard', 'Scoreboard', 'keyboard', 'CAPITAL')
