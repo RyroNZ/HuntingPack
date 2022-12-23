@@ -394,7 +394,7 @@ Citizen.CreateThread(function()
             AddTextComponentString("~y~Driver has successfully extracted!\nNew game will begin shortly.")
             DrawText(0.5, 0.2)
         elseif gameStarted then
-            if startTime > 15 then
+            if startTime > 5 then
 
                 local extractionText = ''
                 local visibilityText = ''
