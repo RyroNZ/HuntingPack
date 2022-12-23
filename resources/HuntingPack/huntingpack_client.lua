@@ -7,6 +7,7 @@ RegisterNetEvent('OnGameEnded')
 RegisterNetEvent('OnUpdateRanks')
 RegisterNetEvent('OnClearRanks')
 
+local distanceForExtraction = 10.0
 local ourTeamType = ''
 local ourDriverVehicle = 0
 local startTime = 0
@@ -34,7 +35,14 @@ local respawnCooldown = 0
 local currentSpawnConfig = {name = 'None', driverSpawnVec = vector3(0,0,0), driverSpawnRot = 0, attackerSpawnVec = vector3(0,0,0), attackerSpawnRot = 0, defenderSpawnVec = vector3(0,0,0), defenderSpawnRot = 0}
 local selectedSpawn = nil
 local showScoreboard = false
-local endPoint = vector3(-1657.05, -3155.652, 13) -- airport final location
+local distanceToFinalLocation = -1
+local endPoints = {
+    {name = 'Airport', destination = vector3(-1657.05, -3155.652, 13), vehicleModel = 'miljet', vehicleSpawnLocation = vector3(-1583,-2999,14), vehicleSpawnRotation = 240.0},
+    {name = 'Ocean South', destination = vector3(1793.05, -2725.652, 1.5), vehicleModel = 'marquis', vehicleSpawnLocation = vector3(1804.1, -2759.189, -1.85), vehicleSpawnRotation = 205.0},
+    {name = 'Ocean North', destination = vector3(-1610.05, 5261.652, 4.2), vehicleModel = 'marquis', vehicleSpawnLocation = vector3(-1601.945,5265.29,0), vehicleSpawnRotation = 358.0},
+    {name = 'Beach', destination = vector3(-1841.05, -1254.652, 9), vehicleModel = 'marquis', vehicleSpawnLocation = vector3(-1859.0, -1268.0,3.3), vehicleSpawnRotation = 204.0}
+}
+local selectedEndPoint = nil
 local totalPlayers = 0
 local currentRank = -1
 local scoreToBeat = -1
@@ -56,6 +64,12 @@ local forceDriverBlipVisibleTime = 0
 local needsResetHealth = false
 local createdBlipForRadius = false
 local driverBlip = nil
+local isInExtraction = false
+local currentScore = 0
+local extractionBlip = nil
+local hasExtracted = false
+local isExtracting = false
+local extractionTimeRemaining = 5.0
 
 local function count_array(tab)
     count = 0
@@ -130,7 +144,9 @@ Citizen.CreateThread(function()
             end
             needsResetHealth = true
             isLocalPlayerInVehicle = false
-            timeRemainingOnFoot = timeRemainingOnFoot - 0.1
+            if not isExtracting then
+                timeRemainingOnFoot = timeRemainingOnFoot - 0.1
+            end
             if timeRemainingOnFoot <= 0 and ourTeamType == 'driver' then
                 SetEntityHealth(GetPlayerPed(-1), 0)
             end
@@ -156,8 +172,8 @@ Citizen.CreateThread(function()
             if (vehicleClass == 14 or vehicleClass == 15 or vehicleClass == 16) then
 
                 if ourTeamType == 'driver' and gameStarted then
-                    SetEntityAsMissionEntity(car, false, false) 
-                    DeleteVehicle(car)
+                    --SetEntityAsMissionEntity(car, false, false) 
+                    --DeleteVehicle(car)
                 end
             end
             if needsResetHealth then
@@ -267,9 +283,9 @@ Citizen.CreateThread(function()
                 lifeStart = GetGameTimer()
             end
         end
+        distanceToFinalLocation = #(GetEntityCoords(PlayerPedId()) - selectedEndPoint.destination)
         SetEnableVehicleSlipstreaming(true)
         local speedinKMH = GetEntitySpeed(driverPed) * 3.6
-        local distanceToFinalLocation = #(GetEntityCoords(PlayerPedId()) - endPoint)
         local wantedLevel = 0
         if distanceToFinalLocation < 500 and ourTeamType == 'driver' then
             wantedLevel = 5
@@ -278,16 +294,22 @@ Citizen.CreateThread(function()
             SetPlayerWantedLevel(PlayerId(), wantedLevel, false)
             SetPlayerWantedLevelNow(PlayerId(), false)
         end
-
-        if distanceToFinalLocation < 40 and ourTeamType == 'driver' and gameStarted then
-            gameStarted = false
-            TriggerServerEvent('OnNotifyHighScore', GetPlayerName(PlayerId()), totalLife)
-            timeBelowSpeed = 0
-            TriggerEvent('SpawnVehicle', 'miljet', GetEntityCoords(PlayerPedId()), GetEntityHeading(PlayerPedId()) + 180.0)
+        local currentVehicleId = GetVehiclePedIsIn(GetPlayerPed(-1), false)
+        if distanceToFinalLocation < distanceForExtraction and ourTeamType == 'driver' and gameStarted and currentVehicleId == 0  then
+            isExtracting = true
+            extractionTimeRemaining = extractionTimeRemaining - 0.1
+            if extractionTimeRemaining <= 0 then
+                TriggerServerEvent('OnNotifyHighScore', GetPlayerName(PlayerId()), totalLife)
+                TriggerEvent('SpawnVehicle', selectedEndPoint.vehicleModel, selectedEndPoint.vehicleSpawnLocation, selectedEndPoint.vehicleSpawnRotation)
+                hasExtracted = true
+            end
+        else
+            isExtracting = false
+            extractionTimeRemaining = 10
         end
 
         if (speedinKMH < minSpeedInKMH or speedinKMH > maxSpeedInKMH)  and (GetGameTimer() - startTime) / 1000 >
-            15 and ourTeamType == 'driver'then
+            15 and ourTeamType == 'driver' and not hasExtracted and not isExtracting then
             timeBelowSpeed = timeBelowSpeed + delta_time
             timeBelowSpeed = math.clamp(timeBelowSpeed, 0, maxTimeBelowSpeed)
             if shouldNotifyBelowSpeed and ourTeamType == 'driver' then
@@ -358,32 +380,56 @@ end)
 Citizen.CreateThread(function()
     while true do
         Wait(0)
-        if gameStarted then
+        SetTextFont(0)
+        SetTextProportional(0)
+        SetTextScale(0.0, 0.5)
+        SetTextColour(0, 128, 0, 255)
+        SetTextDropshadow(0, 0, 0, 0, 255)
+        SetTextEdge(2, 0, 0, 0, 500)
+        SetTextDropShadow()
+        SetTextOutline()
+        SetTextEntry("STRING")
+        SetTextCentre(1)
+        if hasExtracted then
+            AddTextComponentString("~y~Driver has successfully extracted!\nNew game will begin shortly.")
+            DrawText(0.5, 0.2)
+        elseif gameStarted then
             if startTime > 15 then
-                SetTextFont(0)
-                SetTextProportional(1)
-                SetTextScale(0.0, 0.5)
-                SetTextColour(0, 128, 0, 255)
-                SetTextDropshadow(0, 0, 0, 0, 255)
-                SetTextEdge(2, 0, 0, 0, 150)
-                SetTextDropShadow()
-                SetTextOutline()
-                SetTextEntry("STRING")
-                SetTextCentre(1)
-                local distanceToFinalLocation = #(GetEntityCoords(PlayerPedId()) - endPoint)
-                local currentScore = totalLife * (totalPlayers * 1.68 - 1)
-                if currentScore < scoreToBeat then
-                    SetTextColour(128, 0, 0, 255)
+
+                local extractionText = ''
+                local visibilityText = ''
+                local healthText = ''
+                if ourTeamType == 'driver' then
+                    extractionText = '~r~Extraction Locked!'
+                    if extractionBlip then
+                        extractionText = '~g~Extract at ' .. selectedEndPoint.name
+                    end
+                    local currentVehicleId = GetVehiclePedIsIn(GetPlayerPed(-1), false)
+                    if currentVehicleId == 0 then
+                        visibilityText  = '[On Foot]\n~g~Hidden '
+                        healthText = '~r~Killable'
+                    else
+                        visibilityText = '[In Vehicle]\n~r~Visible '
+                        healthText ='~g~Immune'
+                    end
                 end
+               
+                currentScore = totalLife * (totalPlayers * 1.68 - 1)
+
                 local rankString = ''
                 local scoreToBeatString = ''
                 if currentRank ~= -1 then
-                    rankString = 'Rank #' .. currentRank .. (" (%.0f)"):format(scoreToBeat)
+                    if currentScore < scoreToBeat then
+                        rankString = '~r~Rank #' .. currentRank .. (" (%.0f)"):format(scoreToBeat)
+                    else
+                        rankString = '~g~Rank #' .. currentRank .. (" (%.0f)"):format(scoreToBeat)
+                    end
                 end
                 AddTextComponentString(
-                    ("Survived\n%.1f Seconds\n %.0f Score\n%s\n%s"):format(totalLife,
-                                                                   currentScore, rankString, scoreToBeatString))
-                DrawText(0.9, 0.1)
+                    ("~g~%.1f ~s~Seconds\n ~g~%.0f ~s~Score\n%s\n%s\n%s\n\n%s\n%s"):format(totalLife,
+                                                                   currentScore, rankString, scoreToBeatString, extractionText, visibilityText, healthText))
+
+                DrawText(0.8, 0.1)                                                  
             end
             local speedinKMH = GetEntitySpeed(driverPed) * 3.6
             SetTextFont(0)
@@ -409,7 +455,11 @@ Citizen.CreateThread(function()
                 DrawText(0.5, 0.2)
             else
                 if ourTeamType == 'driver' then
-                    if isLocalPlayerInVehicle == false then
+                    if isExtracting then
+                        AddTextComponentString(
+                            ("~y~Extracting\n%.1f"):format(math.clamp(extractionTimeRemaining, 0, 999)))
+                        DrawText(0.5, 0.25)
+                    elseif isLocalPlayerInVehicle == false then
                         AddTextComponentString(
                             ("%.1f"):format(math.clamp(timeRemainingOnFoot, 0, 60)))
                         DrawText(0.5, 0.25)
@@ -609,7 +659,12 @@ AddEventHandler('onHuntingPackStart',
     SetEntityHealth(GetPlayerPed(-1), 1000)
    
     -- account for the argument not being passed
+   
+    extractionTimeRemaining = 10
+    isExtracting = false
+    hasExtracted = false
     timeRemainingOnFoot = 60
+    selectedEndPoint = endPoints[math.random(1, #endPoints)]
     currentRank = -1
     scoreToBeat = -1
     selectedSpawn = inSelectedSpawn
@@ -629,6 +684,8 @@ AddEventHandler('onHuntingPackStart',
     DoScreenFadeOut(500)
     exports.spawnmanager:forceRespawn()    
     if GetEntityHealth(GetPlayerPed(-1)) <= 0 then
+        ClearPedTasksImmediately(GetPlayerPed(-1))
+        SetPedCoordsKeepVehicle(GetPlayerPed(-1),  spawnPos.x, spawnPos.y, spawnPos.z)
         NetworkResurrectLocalPlayer(spawnPos.x, spawnPos.y, spawnPos.z, spawnRot, true, true, false)
     end
     Wait(1000)
@@ -738,19 +795,45 @@ function GetPlayers()
     return players
 end
 
+CreateThread(function()
+	while true do
+		-- draw every frame
+        Wait(0)
+        if selectedEndPoint ~= nil  then
+            if ourTeamType == 'driver' and distanceToFinalLocation < 500 then
+            else
+                Wait(1000)
+            end
+            DrawMarker(1, selectedEndPoint.destination.x, selectedEndPoint.destination.y, selectedEndPoint.destination.z + 2, 0.0, 0.0, 0.0, 0.0, 180.0, 0.0, distanceForExtraction, distanceForExtraction, distanceForExtraction, 255, 128, 0, 50, false, true, 2, nil, nil, false)            
+        end
+	end
+end)
+
 Citizen.CreateThread(function()
     local blips = {}
     local gamerTags = {}
     local currentPlayer = PlayerId()
-    SetGpsActive(true)
-    StartGpsMultiRoute(25, true, true)
-    AddPointToGpsMultiRoute(endPoint.x, endPoint.y, endPoint.z)
-    SetGpsMultiRouteRender(true)
-    local destinationBlip = AddBlipForCoord(endPoint.x, endPoint.y, endPoint.z)
-	SetBlipColour(destinationBlip2, 25)
+   
     while true do
         Wait(100)
         local players = GetPlayers()
+
+        if currentScore > scoreToBeat and ourTeamType == 'driver' then
+            if not extractionBlip then
+                print('creating extraction blip')
+                SetGpsActive(true)
+                StartGpsMultiRoute(25, true, true)
+                AddPointToGpsMultiRoute(selectedEndPoint.destination.x, selectedEndPoint.destination.y, selectedEndPoint.destination.z)
+                SetGpsMultiRouteRender(true)
+                extractionBlip = AddBlipForCoord(selectedEndPoint.destination.x, selectedEndPoint.destination.y, selectedEndPoint.destination.z)
+                SetBlipColour(destinationBlip, 25)
+            end
+        else
+            SetGpsActive(false)
+            SetGpsMultiRouteRender(false)
+            RemoveBlip(extractionBlip)
+            extractionBlip = nil
+        end
 
         for player = 0, 64 do
             if player ~= currentPlayer and NetworkIsPlayerActive(player) then
@@ -893,7 +976,7 @@ Citizen.CreateThread(function()
             SetTextOutline()
             SetTextEntry("STRING")
             SetTextCentre(1)
-            AddTextComponentString(selectedSpawn.name .. " Player Leaderboard \n(" .. totalPlayers .. " Players In Game)")
+            AddTextComponentString(selectedSpawn.name .. " Leaderboard \n(" .. totalPlayers .. " Players In Game)")
             DrawText(0.5, 0.1)
             DrawPlayers()
         end
@@ -976,6 +1059,7 @@ RegisterCommand('respawngroundbtn', function(source, args, rawcommand)
     if ourTeamType == 'driver' then
         TriggerEvent('chat:addMessage',
                      {args = {'Unable to respawn.... you are the driver!'}})
+        SetPedCoordsKeepVehicle(GetPlayerPed(-1),  selectedEndPoint.destination.x + 50, selectedEndPoint.destination.y + 50, selectedEndPoint.destination.z)
         return
     end
     if respawnCooldown > 0 then
@@ -1013,7 +1097,7 @@ AddEventHandler('OnNotifyDriverBlipArea', function(enabled, posX, posY, posZ)
 end)
 
 RegisterCommand('respawnairbtn', function(source, args, rawcommand)
---[[
+
     if ourTeamType == 'driver' then
         TriggerEvent('chat:addMessage',
                      {args = {'Unable to respawn.... you are the driver!'}})
@@ -1031,12 +1115,7 @@ RegisterCommand('respawnairbtn', function(source, args, rawcommand)
 
     respawnCooldown = 5
     print('Requesting Start for ' .. GetPlayerName(PlayerId()) .. ' in progress')
-    if not gameStarted then
-        TriggerServerEvent('OnRequestJoinInProgress', GetPlayerServerId(PlayerId()))
-    else
-        TriggerEvent('SpawnVehicle', 'polmav', GetEntityCoords(PlayerPedId()), GetEntityHeading(PlayerPedId()))
-    end
---]]
+    TriggerEvent('SpawnVehicle', 'polmav', GetEntityCoords(PlayerPedId()), GetEntityHeading(PlayerPedId()))
 end, false)
 
 RegisterCommand('scoreboard', function(source, args, rawcommand)
