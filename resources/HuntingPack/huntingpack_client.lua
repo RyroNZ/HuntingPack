@@ -7,7 +7,7 @@ RegisterNetEvent('OnGameEnded')
 RegisterNetEvent('OnUpdateRanks')
 RegisterNetEvent('OnClearRanks')
 
-local warmupTime = 5
+local warmupTime = 15
 local distanceForExtraction = 10.0
 local ourTeamType = ''
 local ourDriverVehicle = 0
@@ -53,15 +53,13 @@ local timeDead = 0
 local oldVehicle = nil
 local possibleDriverVehicles = {'Firetruk', 'stockade', 'stockade3', 'terbyte', 'pounder2', 
 'flatbed', 'rubble', 'mixer', 'hotknife', 'patriot2', 'airbus', 'coach', 
-'banshee', 'futo', 'tourbus', 'trash', 'lguard', 'akuma'}
+'banshee', 'futo', 'tourbus', 'trash', 'lguard'}
 local possibleAttackerVehicles = {
         'FBI', 'FBI2', 'Police3', 'Sheriff2', 'Police2', 'Police', 'Police4',
         'Pranger', 'Sheriff'
     }
-local possibleDefenderVehicles  = {'Firetruk', 'stockade', 'stockade3', 'terbyte', 'pounder2', 
-'flatbed', 'rubble', 'mixer', 'hotknife', 'patriot2', 'airbus', 'coach', 
-'banshee', 'futo', 'tourbus', 'trash', 'lguard', 'akuma'} --{'Ambulance'}
-local forceDriverBlipVisibleTime = 0
+local possibleDefenderVehicles  = {'futo', 'banshee'} --{'Ambulance'}
+local forceDriverBlipVisible = false
 local needsResetHealth = false
 local createdBlipForRadius = false
 local driverBlip = nil
@@ -132,12 +130,11 @@ Citizen.CreateThread(function()
             timeDead = 0
         end
 
-        if forceDriverBlipVisibleTime > 0 then
-            forceDriverBlipVisibleTime = forceDriverBlipVisibleTime - 0.1
-        end
-
-
         if currentVehicleId == 0 then
+            if forceDriverBlipVisible and ourTeamType == 'driver' then
+                TriggerEvent('OnNotifyDriversBlipVisible', false)
+                TriggerServerEvent('OnNotifyDriverBlipVisible', false) 
+            end  
             if ourTeamType == 'driver' and not createdBlipForRadius then
                 createdBlipForRadius = true
                 local coords = GetEntityCoords(PlayerPedId())
@@ -162,9 +159,13 @@ Citizen.CreateThread(function()
                 GiveWeaponToPed(playerPed, weaponHash, ammoCount, false, true)
             end
         else
+            if not forceDriverBlipVisible and ourTeamType == 'driver' then
+                TriggerEvent('OnNotifyDriversBlipVisible', true)
+                TriggerServerEvent('OnNotifyDriverBlipVisible', true) 
+            end     
 
             if createdBlipForRadius then
-                createdBlipForRadius = false
+                createdBlipForRadius = false             
                 TriggerServerEvent('OnNotifyDriverBlipArea', false, 0, 0, 0)
             end
 
@@ -409,10 +410,10 @@ Citizen.CreateThread(function()
                     end
                     local currentVehicleId = GetVehiclePedIsIn(GetPlayerPed(-1), false)
                     if currentVehicleId == 0 then
-                        visibilityText  = '[On Foot]\n~g~Hidden '
+                        visibilityText  = '~y~[On Foot]\n~g~Hidden '
                         healthText = '~r~Killable'
                     else
-                        visibilityText = '[In Vehicle]\n~r~Visible '
+                        visibilityText = '~y~[In Vehicle]\n~r~Visible '
                         healthText ='~g~Immune'
                     end
                 end
@@ -453,7 +454,7 @@ Citizen.CreateThread(function()
             SetTextCentre(1)
             if (GetGameTimer() - startTime) / 1000 < warmupTime and ourTeamType ==
                 'driver' and showScoreboard == false then
-                AddTextComponentString(("Run From The Police\n Get to the extraction point to set a score!\n%.1f"):format(
+                AddTextComponentString(("~y~Run From The Police\n Get to the extraction point to set a score!\n%.1f"):format(
                                            warmupTime - (GetGameTimer() - startTime) /
                                                1000))
                 DrawText(0.5, 0.2)
@@ -491,13 +492,13 @@ Citizen.CreateThread(function()
                 SetTextCentre(1)
                 if defenderName == GetPlayerName(PlayerId()) then
                     AddTextComponentString(
-                        ("Do Anything You Want!\n%.1f"):format(warmupTime -
+                        ("~y~Do Anything You Want!\n%.1f"):format(warmupTime -
                                                                    (GetGameTimer() -
                                                                        startTime) /
                                                                    1000))
                 else
                     AddTextComponentString(
-                        ("Stop the truck from extracting at the airport!\n%.1f"):format(warmupTime -
+                        ("~y~Stop the truck from extracting!\n%.1f"):format(warmupTime -
                                                              (GetGameTimer() -
                                                                  startTime) /
                                                              1000))
@@ -537,7 +538,7 @@ AddEventHandler('onClientGameTypeStart', function()
         if ourTeamType  == 'driver' then
             inModels = { 'g_m_m_chicold_01', 's_m_m_movspace_01', 's_m_y_robber_01', 's_m_y_prisoner_01', 's_m_y_prismuscl_01', 's_m_y_factory_01' }
         elseif ourTeamType  == 'defender' then
-            inModels = { 'g_m_m_chicold_01', 's_m_m_movspace_01', 's_m_y_robber_01', 's_m_y_prisoner_01', 's_m_y_prismuscl_01', 's_m_y_factory_01' }--{ 's_m_m_scientist_01', 's_m_m_doctor_01', 's_m_m_paramedic_01' }
+            inModels = {'s_m_m_armoured_01', 's_m_m_armoured_02', 's_m_m_chemsec_0', 's_m_m_highsec_01', 's_m_y_uscg_01' }
         else
             inModels = { 's_m_y_cop_01', 's_m_y_hwaycop_01', 's_m_y_sheriff_01', 's_m_y_ranger_01' }
         end
@@ -661,9 +662,14 @@ AddEventHandler('onHuntingPackStart',
                 function(teamtype, spawnPos, spawnRot, driver, inSelectedSpawn, isGameStarted)
     print("Client_HuntingPackStart")
     SetEntityHealth(GetPlayerPed(-1), 1000)
-   
+    car = GetVehiclePedIsUsing(GetPlayerPed(-1), false)
+    if car ~= 0 then
+        SetEntityAsMissionEntity(car, false, false) 
+        DeleteVehicle(car)
+    end
     -- account for the argument not being passed
    
+    timeBelowSpeed = 0
     extractionTimeRemaining = 10
     isExtracting = false
     hasExtracted = false
@@ -685,16 +691,13 @@ AddEventHandler('onHuntingPackStart',
     end
     local vehicleName = 'Sheriff2'
     ourTeamType = teamtype
-    DoScreenFadeOut(500)
+    DoScreenFadeOut(0)
     exports.spawnmanager:forceRespawn()    
+    Wait(1000)
     if GetEntityHealth(GetPlayerPed(-1)) <= 0 then
         ClearPedTasksImmediately(GetPlayerPed(-1))
         SetPedCoordsKeepVehicle(GetPlayerPed(-1),  spawnPos.x, spawnPos.y, spawnPos.z)
-        NetworkResurrectLocalPlayer(spawnPos.x, spawnPos.y, spawnPos.z, spawnRot, true, true, false)
     end
-    Wait(1000)
-    DoScreenFadeIn(500)
-    print(teamtype)
     startTime = GetGameTimer()
 
     if ourTeamType == 'driver' then
@@ -707,7 +710,8 @@ AddEventHandler('onHuntingPackStart',
 
     startLocation = spawnPos
     TriggerEvent('SpawnTeamGroundVehicle', spawnPos, spawnRot)
-   
+    Wait(500)
+    DoScreenFadeIn(500)
 
 end)
 
@@ -729,7 +733,6 @@ end)
 AddEventHandler('SpawnVehicle', function(vehicleName, inSpawnPos, inSpawnRot)
 
     car = GetVehiclePedIsUsing(GetPlayerPed(-1), false)
-    print(car)
     if car ~= 0 then
         SetEntityAsMissionEntity(car, false, false) 
         DeleteVehicle(car)
@@ -849,12 +852,11 @@ Citizen.CreateThread(function()
                 local currentVehicleId = GetVehiclePedIsIn(playerPed, false)
                 local shouldCreateBlip = true
                 if playerName == driverName then
-                    if currentVehicleId == 0 and forceDriverBlipVisibleTime <= 0 then
+                    if currentVehicleId == 0 and not forceDriverBlipVisible then
                         shouldCreateBlip = false
-                    elseif forceDriverBlipVisibleTime <= 0 then
-                        TriggerEvent('OnNotifyDriversBlipVisible')
-                        TriggerServerEvent('OnNotifyDriverBlipVisible')
                     end
+                elseif playerName == defenderName then
+                    shouldCreateBlip = false
                 end
 
                 if ourTeamType == 'driver' then
@@ -876,8 +878,8 @@ Citizen.CreateThread(function()
                     SetBlipNameToPlayerName(new_blip, player)
 
                     -- Make blip white
-                    if playerName == defenderName or defenderName ==
-                        GetPlayerName(PlayerId()) then
+                    if playerName == defenderName or (defenderName ==
+                        GetPlayerName(PlayerId()) and playerName ~= driverName) then
                         SetBlipColour(new_blip, 64)
                         SetBlipCategory(new_blip, 380)
                         SetMpGamerTagColour(gamerTag, 0, 39)
@@ -1083,8 +1085,8 @@ RegisterCommand('respawngroundbtn', function(source, args, rawcommand)
 end, false)
 
 RegisterNetEvent('OnNotifyDriverBlipVisible')
-AddEventHandler('OnNotifyDriverBlipVisible', function()
-    forceDriverBlipVisibleTime = 5
+AddEventHandler('OnNotifyDriverBlipVisible', function(isVisible)
+    forceDriverBlipVisibleTime = isVisible
 end)
 
 RegisterNetEvent('OnNotifyDriverBlipArea')

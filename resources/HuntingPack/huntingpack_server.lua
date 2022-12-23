@@ -242,9 +242,9 @@ AddEventHandler('OnNewRespawnPoint',
 end)
 
 RegisterNetEvent("OnNotifyDriverBlipVisible")
-AddEventHandler('OnNotifyDriverBlipVisible', function()
+AddEventHandler('OnNotifyDriverBlipVisible', function(isVisible)
 
-    TriggerClientEvent('OnNotifyDriverBlipVisible', -1)
+    TriggerClientEvent('OnNotifyDriverBlipVisible', -1, isVisible)
 
 end)
 
@@ -425,10 +425,10 @@ RegisterNetEvent('OnNotifyKilled')
 AddEventHandler('OnNotifyKilled', function(Name, LifeTime)
 
     if not gameStarted then
-        return
+        send_global_message('Driver has been killed! Total Life: ' .. LifeTime ..
+        ' Seconds')
     end
-    send_global_message('Driver has been killed! Total Life: ' .. LifeTime ..
-                            ' Seconds')
+
     gameStarted = false
     timerCountdown = 10
     newhighScoreIdx = -1
