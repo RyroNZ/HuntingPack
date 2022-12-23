@@ -7,6 +7,7 @@ RegisterNetEvent('OnGameEnded')
 RegisterNetEvent('OnUpdateRanks')
 RegisterNetEvent('OnClearRanks')
 
+local warmupTime = 5
 local distanceForExtraction = 10.0
 local ourTeamType = ''
 local ourDriverVehicle = 0
@@ -277,13 +278,15 @@ Citizen.CreateThread(function()
             shouldNotifyAboveSpeed = false
         end
         if ourTeamType == 'driver' then
-            if (GetGameTimer() - startTime) / 1000 > 15 then
+            if (GetGameTimer() - startTime) / 1000 > warmupTime then
                 totalLife = (GetGameTimer() - lifeStart) / 1000
             else
                 lifeStart = GetGameTimer()
             end
         end
-        distanceToFinalLocation = #(GetEntityCoords(PlayerPedId()) - selectedEndPoint.destination)
+        if selectedEndPoint ~= nil then
+            distanceToFinalLocation = #(GetEntityCoords(PlayerPedId()) - selectedEndPoint.destination)
+        end
         SetEnableVehicleSlipstreaming(true)
         local speedinKMH = GetEntitySpeed(driverPed) * 3.6
         local wantedLevel = 0
@@ -309,7 +312,7 @@ Citizen.CreateThread(function()
         end
 
         if (speedinKMH < minSpeedInKMH or speedinKMH > maxSpeedInKMH)  and (GetGameTimer() - startTime) / 1000 >
-            15 and ourTeamType == 'driver' and not hasExtracted and not isExtracting then
+            warmupTime and ourTeamType == 'driver' and not hasExtracted and not isExtracting then
             timeBelowSpeed = timeBelowSpeed + delta_time
             timeBelowSpeed = math.clamp(timeBelowSpeed, 0, maxTimeBelowSpeed)
             if shouldNotifyBelowSpeed and ourTeamType == 'driver' then
@@ -394,7 +397,7 @@ Citizen.CreateThread(function()
             AddTextComponentString("~y~Driver has successfully extracted!\nNew game will begin shortly.")
             DrawText(0.5, 0.2)
         elseif gameStarted then
-            if startTime > 15 then
+            if startTime > warmupTime then
 
                 local extractionText = ''
                 local visibilityText = ''
@@ -425,6 +428,7 @@ Citizen.CreateThread(function()
                         rankString = '~g~Rank #' .. currentRank .. (" (%.0f)"):format(scoreToBeat)
                     end
                 end
+                rankString = ''
                 AddTextComponentString(
                     ("~g~%.1f ~s~Seconds\n ~g~%.0f ~s~Score\n%s\n%s\n%s\n\n%s\n%s"):format(totalLife,
                                                                    currentScore, rankString, scoreToBeatString, extractionText, visibilityText, healthText))
@@ -435,7 +439,7 @@ Citizen.CreateThread(function()
             SetTextFont(0)
             SetTextProportional(1)
             SetTextScale(0.0, 0.65)
-            if (GetGameTimer() - startTime) / 1000 < 15 or (speedinKMH >=
+            if (GetGameTimer() - startTime) / 1000 < warmupTime or (speedinKMH >=
                 minSpeedInKMH and speedinKMH < maxSpeedInKMH) then
                 SetTextColour(0, 128, 0, 255)
             else
@@ -447,10 +451,10 @@ Citizen.CreateThread(function()
             SetTextOutline()
             SetTextEntry("STRING")
             SetTextCentre(1)
-            if (GetGameTimer() - startTime) / 1000 < 15 and ourTeamType ==
+            if (GetGameTimer() - startTime) / 1000 < warmupTime and ourTeamType ==
                 'driver' and showScoreboard == false then
-                AddTextComponentString(("Run From The Police\n Get to the airport to set a score!\n%.1f"):format(
-                                           15 - (GetGameTimer() - startTime) /
+                AddTextComponentString(("Run From The Police\n Get to the extraction point to set a score!\n%.1f"):format(
+                                           warmupTime - (GetGameTimer() - startTime) /
                                                1000))
                 DrawText(0.5, 0.2)
             else
@@ -473,7 +477,7 @@ Citizen.CreateThread(function()
                 
 
             end
-            if 15 - (GetGameTimer() - startTime) / 1000 > 0 and totalLife < 15 and
+            if warmupTime - (GetGameTimer() - startTime) / 1000 > 0 and totalLife < warmupTime and
                 ourTeamType ~= 'driver' and showScoreboard == false then
                 SetTextFont(0)
                 SetTextProportional(1)
@@ -487,13 +491,13 @@ Citizen.CreateThread(function()
                 SetTextCentre(1)
                 if defenderName == GetPlayerName(PlayerId()) then
                     AddTextComponentString(
-                        ("Do Anything You Want!\n%.1f"):format(15 -
+                        ("Do Anything You Want!\n%.1f"):format(warmupTime -
                                                                    (GetGameTimer() -
                                                                        startTime) /
                                                                    1000))
                 elseif showScoreboard == false then
                     AddTextComponentString(
-                        ("Stop the truck from extracting at the airport!\n%.1f"):format(15 -
+                        ("Stop the truck from extracting at the airport!\n%.1f"):format(warmupTime -
                                                              (GetGameTimer() -
                                                                  startTime) /
                                                              1000))
