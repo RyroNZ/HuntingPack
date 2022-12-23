@@ -495,7 +495,7 @@ Citizen.CreateThread(function()
                                                                    (GetGameTimer() -
                                                                        startTime) /
                                                                    1000))
-                elseif showScoreboard == false then
+                else
                     AddTextComponentString(
                         ("Stop the truck from extracting at the airport!\n%.1f"):format(warmupTime -
                                                              (GetGameTimer() -
@@ -1119,6 +1119,7 @@ RegisterCommand('respawnairbtn', function(source, args, rawcommand)
     respawnCooldown = 5
     print('Requesting Start for ' .. GetPlayerName(PlayerId()) .. ' in progress')
     TriggerEvent('SpawnVehicle', 'polmav', GetEntityCoords(PlayerPedId()), GetEntityHeading(PlayerPedId()))
+      ]]--
 end, false)
 
 RegisterCommand('scoreboard', function(source, args, rawcommand)
@@ -1127,7 +1128,7 @@ RegisterCommand('scoreboard', function(source, args, rawcommand)
     else
         showScoreboard = true
     end
-    ]]--
+  
 end, false)
 
 RegisterKeyMapping('respawngroundbtn', 'Respawn Land Vehicle', "keyboard", "F1")
