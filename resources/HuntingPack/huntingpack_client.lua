@@ -84,7 +84,7 @@ Citizen.CreateThread(function()
         local speedinKMH = GetEntitySpeed(GetPlayerPed(-1)) * 3.6
         if speedinKMH < 1.0 and GetEntityHealth(GetPlayerPed(-1)) > 0 then
             afkTime = afkTime + 1.0
-            if afkTime > 35 and isMarkedAfk == false then
+            if afkTime > 35 and isMarkedAfk == false and ourTeamType ~= 'driver' then
                 TriggerServerEvent('OnMarkedAFK', true)
                 isMarkedAfk = true
             end
