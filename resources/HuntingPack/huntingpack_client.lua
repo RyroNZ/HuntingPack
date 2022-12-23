@@ -172,8 +172,8 @@ Citizen.CreateThread(function()
             if (vehicleClass == 14 or vehicleClass == 15 or vehicleClass == 16) then
 
                 if ourTeamType == 'driver' and gameStarted then
-                    --SetEntityAsMissionEntity(car, false, false) 
-                    --DeleteVehicle(car)
+                    SetEntityAsMissionEntity(car, false, false) 
+                    DeleteVehicle(car)
                 end
             end
             if needsResetHealth then
@@ -1059,7 +1059,6 @@ RegisterCommand('respawngroundbtn', function(source, args, rawcommand)
     if ourTeamType == 'driver' then
         TriggerEvent('chat:addMessage',
                      {args = {'Unable to respawn.... you are the driver!'}})
-        SetPedCoordsKeepVehicle(GetPlayerPed(-1),  selectedEndPoint.destination.x + 50, selectedEndPoint.destination.y + 50, selectedEndPoint.destination.z)
         return
     end
     if respawnCooldown > 0 then
@@ -1097,7 +1096,7 @@ AddEventHandler('OnNotifyDriverBlipArea', function(enabled, posX, posY, posZ)
 end)
 
 RegisterCommand('respawnairbtn', function(source, args, rawcommand)
-
+--[[
     if ourTeamType == 'driver' then
         TriggerEvent('chat:addMessage',
                      {args = {'Unable to respawn.... you are the driver!'}})
@@ -1124,7 +1123,7 @@ RegisterCommand('scoreboard', function(source, args, rawcommand)
     else
         showScoreboard = true
     end
-    
+    ]]--
 end, false)
 
 RegisterKeyMapping('respawngroundbtn', 'Respawn Land Vehicle', "keyboard", "F1")
