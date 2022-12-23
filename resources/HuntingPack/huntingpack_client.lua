@@ -394,7 +394,7 @@ Citizen.CreateThread(function()
             AddTextComponentString("~y~Driver has successfully extracted!\nNew game will begin shortly.")
             DrawText(0.5, 0.2)
         elseif gameStarted then
-            if startTime > 5 then
+            if startTime > 15 then
 
                 local extractionText = ''
                 local visibilityText = ''
@@ -435,7 +435,7 @@ Citizen.CreateThread(function()
             SetTextFont(0)
             SetTextProportional(1)
             SetTextScale(0.0, 0.65)
-            if (GetGameTimer() - startTime) / 1000 < 5 or (speedinKMH >=
+            if (GetGameTimer() - startTime) / 1000 < 15 or (speedinKMH >=
                 minSpeedInKMH and speedinKMH < maxSpeedInKMH) then
                 SetTextColour(0, 128, 0, 255)
             else
@@ -447,10 +447,10 @@ Citizen.CreateThread(function()
             SetTextOutline()
             SetTextEntry("STRING")
             SetTextCentre(1)
-            if (GetGameTimer() - startTime) / 1000 < 5 and ourTeamType ==
+            if (GetGameTimer() - startTime) / 1000 < 15 and ourTeamType ==
                 'driver' and showScoreboard == false then
                 AddTextComponentString(("Run From The Police\n Get to the airport to set a score!\n%.1f"):format(
-                                           5 - (GetGameTimer() - startTime) /
+                                           15 - (GetGameTimer() - startTime) /
                                                1000))
                 DrawText(0.5, 0.2)
             else
@@ -473,7 +473,7 @@ Citizen.CreateThread(function()
                 
 
             end
-            if 5 - (GetGameTimer() - startTime) / 1000 > 0 and totalLife < 5 and
+            if 15 - (GetGameTimer() - startTime) / 1000 > 0 and totalLife < 15 and
                 ourTeamType ~= 'driver' and showScoreboard == false then
                 SetTextFont(0)
                 SetTextProportional(1)
