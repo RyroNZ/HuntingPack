@@ -152,10 +152,10 @@ AddEventHandler('OnRequestedStart', function(startPoint)
     ranks = loadTable('ranks' .. selectedSpawn.name .. '.json')
     -- randomly select the driver
     driverIdx = math.random(1, total_players)
-    defenderIdx = math.random(1, total_players)
-    while defenderidx == driverIdx do
-        defenderIdx = math.random(1, total_players)
-    end
+    --defenderIdx = math.random(1, total_players)
+    --while defenderidx == driverIdx do
+    --    defenderIdx = math.random(1, total_players)
+    --end
     attackers = {}
     defenders = {}
 
@@ -195,7 +195,7 @@ AddEventHandler('OnRequestedStart', function(startPoint)
     for _, playerId in ipairs(GetSpawnedPlayers()) do
         local name = GetPlayerName(playerId)
         if count ~= driverIdx then
-            if count == defenderIdx then
+            if false then
                 TriggerClientEvent('OnUpdateDefender', -1, name)
                 defenderPlayerId = playerId
                 TriggerClientEvent('onHuntingPackStart', playerId, 'defender',

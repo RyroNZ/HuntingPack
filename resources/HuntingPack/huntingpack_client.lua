@@ -69,6 +69,9 @@ local extractionBlip = nil
 local hasExtracted = false
 local isExtracting = false
 local extractionTimeRemaining = 5.0
+local possiblePoliceWeapons = { {model = 'pumpshotgun', ammo = 10}, { model = 'pistol_mk2', ammo = 30} }
+local possibleDriverWeapons = { {model = 'minismg', ammo = 60} , {model = 'revolver', ammo = 18} , {model = 'sniperrifle', ammo = 5} }
+local weaponHash = nil
 
 local function count_array(tab)
     count = 0
@@ -81,7 +84,8 @@ Citizen.CreateThread(function()
     while true do
         Citizen.Wait(1000)
         local speedinKMH = GetEntitySpeed(GetPlayerPed(-1)) * 3.6
-        if speedinKMH < 1.0 and GetEntityHealth(GetPlayerPed(-1)) > 0 then
+        local currentVehicleId = GetVehiclePedIsIn(GetPlayerPed(-1), false)
+        if speedinKMH < 1.0 and GetEntityHealth(GetPlayerPed(-1)) > 0 and currentVehicleId ~= 0 then
             afkTime = afkTime + 1.0
             if afkTime > 35 and isMarkedAfk == false and ourTeamType ~= 'driver' then
                 TriggerServerEvent('OnMarkedAFK', true)
@@ -92,6 +96,8 @@ Citizen.CreateThread(function()
             if isMarkedAfk == true then
                 isMarkedAfk = false
                 TriggerServerEvent('OnMarkedAFK', false)
+                TriggerServerEvent('OnRequestJoinInProgress', GetPlayerServerId(PlayerId()))
+            
             end
         end
     end
@@ -108,6 +114,7 @@ Citizen.CreateThread(function()
         SetScenarioPedDensityMultiplierThisFrame(1.0, 1.0)
         local playerPed = GetPlayerPed(-1)
         local currentVehicleId = GetVehiclePedIsIn(playerPed, false)
+        local isDriver = GetPedInVehicleSeat(GetVehiclePedIsIn(PlayerPedId()), -1) == PlayerPedId()
         driverPed = playerPed
 
         SetCanAttackFriendly(playerPed, true, true)
@@ -130,6 +137,24 @@ Citizen.CreateThread(function()
             timeDead = 0
         end
 
+        local giveWeapon = currentVehicleId == 0 or not isDriver
+
+        if giveWeapon then
+            local weapons = possiblePoliceWeapons
+            if ourTeamType == 'driver' then
+                weapons = possibleDriverWeapons
+            end
+            for _, weapon in pairs(weapons) do
+                weaponHash = GetHashKey("WEAPON_".. weapon.model)
+                if not HasPedGotWeapon(playerPed, weaponHash, false) then
+                    GiveWeaponToPed(playerPed, weaponHash, weapon.ammo, false, false)
+                end
+            end
+        else
+            RemoveAllPedWeapons(playerPed)
+        end
+
+
         if currentVehicleId == 0 then
             if forceDriverBlipVisible and ourTeamType == 'driver' then
                 TriggerEvent('OnNotifyDriversBlipVisible', false)
@@ -148,16 +173,9 @@ Citizen.CreateThread(function()
             if timeRemainingOnFoot <= 0 and ourTeamType == 'driver' then
                 SetEntityHealth(GetPlayerPed(-1), 0)
             end
-            local weaponHash = 0xBFE256D4
-            local ammoCount = 30
-            if ourTeamType == 'driver' then
-                weaponHash = 0xBFEFFF6D
-                ammoCount = 90
-            end
+           
             SetEntityInvincible(GetPlayerPed(-1), false)
-            if HasPedGotWeapon(playerPed,weaponHash, false) == false then
-                GiveWeaponToPed(playerPed, weaponHash, ammoCount, false, true)
-            end
+            
         else
             if not forceDriverBlipVisible and ourTeamType == 'driver' then
                 TriggerEvent('OnNotifyDriversBlipVisible', true)
@@ -193,11 +211,12 @@ Citizen.CreateThread(function()
 
             SetVehicleEngineCanDegrade(currentVehicleId, false)
             
-            if currentVehicleId ~= ourDriverVehicle and ourTeamType == 'driver' then
-                SetVehicleFuelLevel(currentVehicleId, 50.0)
+            if currentVehicleId ~= ourDriverVehicle then
                 oldVehicle = ourDriverVehicle
                 ourDriverVehicle = currentVehicleId
-                timeBelowSpeed = 0
+                if ourTeamType == 'driver' then
+                    timeBelowSpeed = 0
+                end
                 --TriggerEvent('SpawnVehicle', 'firetruk', GetEntityCoords(PlayerPedId()) + vector3(0,0,0), GetEntityHeading(PlayerPedId())) 
 	            
             end
@@ -209,7 +228,6 @@ Citizen.CreateThread(function()
                 SetVehicleFuelLevel(currentVehicleId, 100.0)
                 SetEntityInvincible(GetPlayerPed(-1), false)
             end
-            RemoveAllPedWeapons(playerPed)
         end
         -- local pos = GetEntityCoords(playerPed) 
         -- RemoveVehiclesFromGeneratorsInArea(pos['x'] - 500.0, pos['y'] - 500.0, pos['z'] - 500.0, pos['x'] + 500.0, pos['y'] + 500.0, pos['z'] + 500.0);
@@ -538,7 +556,7 @@ AddEventHandler('onClientGameTypeStart', function()
         if ourTeamType  == 'driver' then
             inModels = { 'g_m_m_chicold_01', 's_m_m_movspace_01', 's_m_y_robber_01', 's_m_y_prisoner_01', 's_m_y_prismuscl_01', 's_m_y_factory_01' }
         elseif ourTeamType  == 'defender' then
-            inModels = {'s_m_m_armoured_01', 's_m_m_armoured_02', 's_m_m_chemsec_0', 's_m_m_highsec_01', 's_m_y_uscg_01' }
+            inModels = {'s_m_m_armoured_01', 's_m_m_armoured_02', 's_m_m_chemsec_01', 's_m_m_highsec_01', 's_m_y_uscg_01' }
         else
             inModels = { 's_m_y_cop_01', 's_m_y_hwaycop_01', 's_m_y_sheriff_01', 's_m_y_ranger_01' }
         end
@@ -661,7 +679,6 @@ AddEventHandler('OnUpdateDefender',
 AddEventHandler('onHuntingPackStart',
                 function(teamtype, spawnPos, spawnRot, driver, inSelectedSpawn, isGameStarted)
     print("Client_HuntingPackStart")
-    SetEntityHealth(GetPlayerPed(-1), 1000)
     car = GetVehiclePedIsUsing(GetPlayerPed(-1), false)
     if car ~= 0 then
         SetEntityAsMissionEntity(car, false, false) 
