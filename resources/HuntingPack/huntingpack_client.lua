@@ -39,9 +39,9 @@ local showScoreboard = false
 local distanceToFinalLocation = -1
 local endPoints = {
     {name = 'Airport', destination = vector3(-1657.05, -3155.652, 13), vehicleModel = 'miljet', vehicleSpawnLocation = vector3(-1583,-2999,14), vehicleSpawnRotation = 240.0},
-    {name = 'Ocean South', destination = vector3(1793.05, -2725.652, 1.5), vehicleModel = 'marquis', vehicleSpawnLocation = vector3(1804.1, -2759.189, -1.85), vehicleSpawnRotation = 205.0},
-    {name = 'Ocean North', destination = vector3(-1610.05, 5261.652, 4.2), vehicleModel = 'marquis', vehicleSpawnLocation = vector3(-1601.945,5265.29,0), vehicleSpawnRotation = 358.0},
-    {name = 'Beach', destination = vector3(-1841.05, -1254.652, 9), vehicleModel = 'marquis', vehicleSpawnLocation = vector3(-1859.0, -1268.0,3.3), vehicleSpawnRotation = 204.0}
+    {name = 'Ocean South', destination = vector3(1793.05, -2725.652, 1.5), vehicleModel = 'Jetmax', vehicleSpawnLocation = vector3(1804.1, -2759.189, -1.85), vehicleSpawnRotation = 205.0},
+    {name = 'Ocean North', destination = vector3(-1610.05, 5261.652, 4.2), vehicleModel = 'Jetmax', vehicleSpawnLocation = vector3(-1601.945,5265.29,0), vehicleSpawnRotation = 358.0},
+    {name = 'Beach', destination = vector3(-1841.05, -1254.652, 9), vehicleModel = 'Jetmax', vehicleSpawnLocation = vector3(-1859.0, -1268.0,3.3), vehicleSpawnRotation = 204.0}
 }
 local selectedEndPoint = nil
 local totalPlayers = 0
@@ -70,7 +70,7 @@ local hasExtracted = false
 local isExtracting = false
 local extractionTimeRemaining = 5.0
 local possiblePoliceWeapons = { {model = 'pumpshotgun', ammo = 10}, { model = 'pistol_mk2', ammo = 30} }
-local possibleDriverWeapons = { {model = 'minismg', ammo = 60} , {model = 'revolver', ammo = 18} , {model = 'sniperrifle', ammo = 5} }
+local possibleDriverWeapons = { {model = 'minismg', ammo = 60} , {model = 'Pistol50', ammo = 18} , {model = 'sniperrifle', ammo = 5} }
 local weaponHash = nil
 
 local function count_array(tab)
@@ -96,8 +96,9 @@ Citizen.CreateThread(function()
             if isMarkedAfk == true then
                 isMarkedAfk = false
                 TriggerServerEvent('OnMarkedAFK', false)
-                TriggerServerEvent('OnRequestJoinInProgress', GetPlayerServerId(PlayerId()))
-            
+                if not gameStarted then
+                    TriggerServerEvent('OnRequestJoinInProgress', GetPlayerServerId(PlayerId()))
+                end
             end
         end
     end
@@ -125,7 +126,7 @@ Citizen.CreateThread(function()
         if GetEntityHealth(playerPed) <= 0 then
             respawnCooldown = 10
             timeDead = timeDead + 0.1
-            if ourTeamType == 'driver' and gameStarted then
+            if ourTeamType == 'driver' and gameStarted and totalLife > 0 then
                 TriggerServerEvent('OnNotifyKilled', GetPlayerName(PlayerId()), totalLife)
             else
                 if timeDead > 10 then
@@ -249,7 +250,7 @@ Citizen.CreateThread(function()
                 SetPlayerWantedLevel(PlayerId(), math.floor(totalLife/40), false)
                 SetPlayerWantedLevelNow(PlayerId(), false)
             end
-            SetPoliceRadarBlips(false)
+          
         else
             if GetPlayerWantedLevel(PlayerId()) ~= 0 then
                 SetPlayerWantedLevel(PlayerId(), 0, false)
@@ -257,7 +258,7 @@ Citizen.CreateThread(function()
             end
         end
         ]] --
-
+        SetPoliceRadarBlips(false)
         if respawnCooldown > 0 then
             respawnCooldown = respawnCooldown - 0.1
         end
@@ -379,10 +380,10 @@ Citizen.CreateThread(function()
     while true do
         if ourTeamType == 'driver' and gameStarted then
             local speedinKMH = GetEntitySpeed(driverPed) * 3.6
-            if speedinKMH > 100 then
+            if speedinKMH > 80 then
                 previousLocation = GetEntityCoords(GetPlayerPed(-1))
                 local rot = GetEntityHeading(PlayerPedId())
-                Wait(2500)
+                Wait(5000)
                 TriggerServerEvent('OnNewRespawnPoint', previousLocation, rot)
             end
         end
@@ -680,7 +681,7 @@ AddEventHandler('onHuntingPackStart',
                 function(teamtype, spawnPos, spawnRot, driver, inSelectedSpawn, isGameStarted)
     print("Client_HuntingPackStart")
     car = GetVehiclePedIsUsing(GetPlayerPed(-1), false)
-    if car ~= 0 then
+    if car ~= 0 and not gameStarted then
         SetEntityAsMissionEntity(car, false, false) 
         DeleteVehicle(car)
     end
@@ -713,7 +714,6 @@ AddEventHandler('onHuntingPackStart',
     Wait(1000)
     if GetEntityHealth(GetPlayerPed(-1)) <= 0 then
         ClearPedTasksImmediately(GetPlayerPed(-1))
-        SetPedCoordsKeepVehicle(GetPlayerPed(-1),  spawnPos.x, spawnPos.y, spawnPos.z)
     end
     startTime = GetGameTimer()
 
@@ -806,6 +806,10 @@ AddEventHandler('SpawnVehicle', function(vehicleName, inSpawnPos, inSpawnRot)
 
     -- release the model
     SetModelAsNoLongerNeeded(vehicleName)
+
+    --SetPedCoordsKeepVehicle(GetPlayerPed(-1),  inSpawnPos.x, inSpawnPos.y, inSpawnPos.z)
+    --TaskWarpPedIntoVehicle(playerPed, vehicle, -1)
+    SetPedIntoVehicle(playerPed, vehicle, -1)
 
 end)
 

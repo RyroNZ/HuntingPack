@@ -167,12 +167,11 @@ AddEventHandler('OnRequestedStart', function(startPoint)
         end
     end
 
-    count = 1
     driverName = ''
 
-    for _, playerId in ipairs(GetSpawnedPlayers()) do
+    for i, playerId in ipairs(GetSpawnedPlayers()) do
         local name = GetPlayerName(playerId)
-        if count == driverIdx then
+        if i == driverIdx then
             driverName = name
             send_global_message(
                 ('^1%s was selected as the driver!'):format(name))
@@ -186,15 +185,13 @@ AddEventHandler('OnRequestedStart', function(startPoint)
                                     ' players in game. Vehicle must be stopped for ' ..
                                     maxTimeBelowSpeed .. ' seconds')
         end
-        count = count + 1
     end
 
     local defenderSpawn = vector3(selectedSpawn.defenderSpawnVec.x, selectedSpawn.defenderSpawnVec.y, selectedSpawn.defenderSpawnVec.z)
     local attackerSpawn = vector3(selectedSpawn.attackerSpawnVec.x, selectedSpawn.attackerSpawnVec.y, selectedSpawn.attackerSpawnVec.z)
-    count = 1
-    for _, playerId in ipairs(GetSpawnedPlayers()) do
+    for i, playerId in ipairs(GetSpawnedPlayers()) do
         local name = GetPlayerName(playerId)
-        if count ~= driverIdx then
+        if i ~= driverIdx then
             if false then
                 TriggerClientEvent('OnUpdateDefender', -1, name)
                 defenderPlayerId = playerId
@@ -211,7 +208,6 @@ AddEventHandler('OnRequestedStart', function(startPoint)
                                    selectedSpawn.attackerSpawnRot, driverName, selectedSpawn, true)
             end
         end
-        count = count + 1
     end
     print("Finished Selecting Teams!... Preparing spawning")
 end)
@@ -341,6 +337,11 @@ end
 
 RegisterNetEvent('OnNotifyHighScore')
 AddEventHandler('OnNotifyHighScore', function(Name, LifeTime)
+
+    if not gameStarted then
+        return
+    end
+
     gameStarted = false
     timerCountdown = 60
     newhighScoreIdx = -1
@@ -425,9 +426,11 @@ RegisterNetEvent('OnNotifyKilled')
 AddEventHandler('OnNotifyKilled', function(Name, LifeTime)
 
     if not gameStarted then
-        send_global_message('Driver has been killed! Total Life: ' .. LifeTime ..
-        ' Seconds')
+       return
     end
+
+    send_global_message('Driver has been killed! Total Life: ' .. LifeTime ..
+    ' Seconds')
 
     gameStarted = false
     timerCountdown = 10
