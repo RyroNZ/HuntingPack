@@ -69,8 +69,8 @@ local extractionBlip = nil
 local hasExtracted = false
 local isExtracting = false
 local extractionTimeRemaining = 5.0
-local possiblePoliceWeapons = { {model = 'pumpshotgun', ammo = 10}, { model = 'pistol_mk2', ammo = 30} }
-local possibleDriverWeapons = { {model = 'minismg', ammo = 60} , {model = 'Pistol50', ammo = 18} , {model = 'sniperrifle', ammo = 5} }
+local possiblePoliceWeapons = { {model = 'pumpshotgun', ammo = 10, equip = false}, { model = 'pistol_mk2', ammo = 30, equip = true} }
+local possibleDriverWeapons = { {model = 'minismg', ammo = 60, equip = false} , {model = 'Pistol50', ammo = 18, equip = true} , {model = 'sniperrifle', ammo = 5, equip = false} }
 local weaponHash = nil
 
 local function count_array(tab)
@@ -129,7 +129,7 @@ Citizen.CreateThread(function()
             if ourTeamType == 'driver' and gameStarted and totalLife > 0 then
                 TriggerServerEvent('OnNotifyKilled', GetPlayerName(PlayerId()), totalLife)
             else
-                if timeDead > 10 then
+                if timeDead > 10 and ourTeamType ~= 'driver' then
                     respawnCooldown = 5          
                     TriggerServerEvent('OnRequestJoinInProgress', GetPlayerServerId(PlayerId()))
                 end
@@ -148,7 +148,7 @@ Citizen.CreateThread(function()
             for _, weapon in pairs(weapons) do
                 weaponHash = GetHashKey("WEAPON_".. weapon.model)
                 if not HasPedGotWeapon(playerPed, weaponHash, false) then
-                    GiveWeaponToPed(playerPed, weaponHash, weapon.ammo, false, false)
+                    GiveWeaponToPed(playerPed, weaponHash, weapon.ammo, false, weapon.equip)
                 end
             end
         else
@@ -157,13 +157,14 @@ Citizen.CreateThread(function()
 
 
         if currentVehicleId == 0 then
+            local coords = GetEntityCoords(PlayerPedId())
             if forceDriverBlipVisible and ourTeamType == 'driver' then
                 TriggerEvent('OnNotifyDriversBlipVisible', false)
                 TriggerServerEvent('OnNotifyDriverBlipVisible', false) 
             end  
             if ourTeamType == 'driver' and not createdBlipForRadius then
                 createdBlipForRadius = true
-                local coords = GetEntityCoords(PlayerPedId())
+
                 TriggerServerEvent('OnNotifyDriverBlipArea', true, coords.x, coords.y, coords.z)
             end
             needsResetHealth = true
@@ -181,7 +182,7 @@ Citizen.CreateThread(function()
             if not forceDriverBlipVisible and ourTeamType == 'driver' then
                 TriggerEvent('OnNotifyDriversBlipVisible', true)
                 TriggerServerEvent('OnNotifyDriverBlipVisible', true) 
-            end     
+            end   
 
             if createdBlipForRadius then
                 createdBlipForRadius = false             
@@ -252,10 +253,7 @@ Citizen.CreateThread(function()
             end
           
         else
-            if GetPlayerWantedLevel(PlayerId()) ~= 0 then
-                SetPlayerWantedLevel(PlayerId(), 0, false)
-                SetPlayerWantedLevelNow(PlayerId(), false)
-            end
+          
         end
         ]] --
         SetPoliceRadarBlips(false)
@@ -364,6 +362,7 @@ Citizen.CreateThread(function()
                 end
             end
         else
+            timeBelowSpeed = timeBelowSpeed + delta_time * 0.2
             if shouldNotifyAboveSpeed then
                 TriggerServerEvent('OnNotifyAboveSpeed',
                                    GetPlayerName(PlayerId()), timeBelowSpeed)
@@ -429,11 +428,16 @@ Citizen.CreateThread(function()
                     end
                     local currentVehicleId = GetVehiclePedIsIn(GetPlayerPed(-1), false)
                     if currentVehicleId == 0 then
-                        visibilityText  = '~y~[On Foot]\n~g~Hidden '
+                        visibilityText  = '~g~Hidden '
                         healthText = '~r~Killable'
                     else
-                        visibilityText = '~y~[In Vehicle]\n~r~Visible '
+                        visibilityText = '~r~Visible '
                         healthText ='~g~Immune'
+                    end
+                else
+                    extractionText = '~r~Extraction Locked!'
+                    if extractionBlip then
+                        extractionText = '~g~Extract at ' .. selectedEndPoint.name
                     end
                 end
                
@@ -485,7 +489,7 @@ Citizen.CreateThread(function()
                         DrawText(0.5, 0.25)
                     elseif isLocalPlayerInVehicle == false then
                         AddTextComponentString(
-                            ("%.1f"):format(math.clamp(timeRemainingOnFoot, 0, 60)))
+                            ("~y~%.1f"):format(math.clamp(timeRemainingOnFoot, 0, 60)))
                         DrawText(0.5, 0.25)
                     end
                     if timeBelowSpeed > 0 then
@@ -686,13 +690,17 @@ AddEventHandler('onHuntingPackStart',
         DeleteVehicle(car)
     end
     -- account for the argument not being passed
-   
+    totalLife = 0
     timeBelowSpeed = 0
     extractionTimeRemaining = 10
     isExtracting = false
     hasExtracted = false
     timeRemainingOnFoot = 60
-    selectedEndPoint = endPoints[math.random(1, #endPoints)]
+
+    if teamtype == 'driver' then
+        selectedEndPoint = endPoints[math.random(1, #endPoints)]
+    end
+    
     currentRank = -1
     scoreToBeat = -1
     selectedSpawn = inSelectedSpawn
@@ -828,7 +836,7 @@ CreateThread(function()
 		-- draw every frame
         Wait(0)
         if selectedEndPoint ~= nil  then
-            if ourTeamType == 'driver' and distanceToFinalLocation < 500 then
+            if distanceToFinalLocation < 500 then
             else
                 Wait(1000)
             end
@@ -846,7 +854,10 @@ Citizen.CreateThread(function()
         Wait(100)
         local players = GetPlayers()
 
-        if currentScore > scoreToBeat and ourTeamType == 'driver' then
+        if ourTeamType == 'driver' then
+            TriggerServerEvent('OnUpdateEndPoint', selectedEndPoint)
+        end
+        if currentScore > scoreToBeat and gameStarted and totalLife > 0 then
             if not extractionBlip then
                 print('creating extraction blip')
                 SetGpsActive(true)
@@ -945,6 +956,11 @@ AddEventHandler('OnUpdateLifeTimers', function(newTotalLife)
     if ourTeamType ~= 'driver' then totalLife = newTotalLife end
 end)
 
+RegisterNetEvent("OnUpdateEndPoint")
+AddEventHandler('OnUpdateEndPoint', function(inSelectedEndPoint)
+    selectedEndPoint = inSelectedEndPoint
+end)
+
 ranks = {
     {rank = 1, name = 'None', points = 0, players = 0},
     {rank = 2, name = 'None', points = 0, players = 0},
@@ -974,7 +990,7 @@ AddEventHandler('OnClearRanks', function()
 end)
 
 AddEventHandler('OnUpdateRanks', function(name, lifetime, players, rank)
-    if name == GetPlayerName(PlayerId()) then
+    if name == driverName then
         scoreToBeat = lifetime * (players * 1.68 - 1)
         currentRank = rank
     end

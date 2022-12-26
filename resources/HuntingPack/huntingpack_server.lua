@@ -140,7 +140,8 @@ AddEventHandler('OnRequestedStart', function(startPoint)
     print("Received Start Event")
    
     timeBelowSpeed = 0
-    total_players = count_array(GetSpawnedPlayers())
+    spawnedPlayers = GetSpawnedPlayers()
+    total_players = count_array(spawnedPlayers)
     print(("Selecting Teams (Total Players %i)"):format(total_players))
     gameStarted = true
     exports.vSync:RT()
@@ -168,8 +169,8 @@ AddEventHandler('OnRequestedStart', function(startPoint)
     end
 
     driverName = ''
-
-    for i, playerId in ipairs(GetSpawnedPlayers()) do
+   
+    for i, playerId in ipairs(spawnedPlayers) do
         local name = GetPlayerName(playerId)
         if i == driverIdx then
             driverName = name
@@ -184,12 +185,13 @@ AddEventHandler('OnRequestedStart', function(startPoint)
             send_global_message('^3' .. total_players ..
                                     ' players in game. Vehicle must be stopped for ' ..
                                     maxTimeBelowSpeed .. ' seconds')
+            print('Spawning ' .. name .. ' as the driver')
         end
     end
 
     local defenderSpawn = vector3(selectedSpawn.defenderSpawnVec.x, selectedSpawn.defenderSpawnVec.y, selectedSpawn.defenderSpawnVec.z)
     local attackerSpawn = vector3(selectedSpawn.attackerSpawnVec.x, selectedSpawn.attackerSpawnVec.y, selectedSpawn.attackerSpawnVec.z)
-    for i, playerId in ipairs(GetSpawnedPlayers()) do
+    for i, playerId in ipairs(spawnedPlayers) do
         local name = GetPlayerName(playerId)
         if i ~= driverIdx then
             if false then
@@ -206,6 +208,7 @@ AddEventHandler('OnRequestedStart', function(startPoint)
                                        vector3(math.random(-10, 10),
                                                math.random(-10, 10), 0),
                                    selectedSpawn.attackerSpawnRot, driverName, selectedSpawn, true)
+                print('Spawning ' .. name .. ' as an attacker')
             end
         end
     end
@@ -258,6 +261,12 @@ AddEventHandler('OnMarkedAFK', function(isAfk)
         send_global_message(GetPlayerName(source) .. " has rejoined the chaos!")
         spawnedPlayers[#spawnedPlayers + 1] = source
     end
+end)
+
+
+RegisterNetEvent("OnUpdateEndPoint")
+AddEventHandler('OnUpdateEndPoint', function(selectedEndPoint)
+    TriggerClientEvent('OnUpdateEndPoint', -1, selectedEndPoint)
 end)
 
 RegisterNetEvent("OnUpdateLifeTimers")
@@ -448,7 +457,7 @@ Citizen.CreateThread(function()
     while true do
         total_players = count_array(GetSpawnedPlayers())
         TriggerClientEvent('OnUpdateTotalPlayers', -1, total_players)
-        if total_players < 2 and gameStarted then
+        if total_players < 1 and gameStarted then
             timerCountdown = 30
             gameStarted = false
         end
