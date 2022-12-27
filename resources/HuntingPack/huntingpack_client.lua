@@ -63,7 +63,7 @@ local possibleDriverVehicles = {'Firetruk', 'stockade', 'stockade3', 'terbyte', 
 'banshee', 'futo', 'tourbus', 'trash', 'lguard'}
 local possibleAttackerVehicles = {
         'FBI', 'FBI2', 'Police3', 'Sheriff2', 'Police2', 'Police', 'Police4',
-        'Pranger', 'Sheriff'
+        'Pranger', 'Sheriff', 'policeb', 'policet'
     }
 local possibleDefenderVehicles  = {'futo', 'banshee'} --{'Ambulance'}
 local forceDriverBlipVisible = {}
@@ -269,17 +269,13 @@ Citizen.CreateThread(function()
         if respawnCooldown > 0 then
             respawnCooldown = respawnCooldown - 0.1
         end
-
+        local currentVehicleId = GetVehiclePedIsIn(GetPlayerPed(-1), false)
         if ourTeamType == 'driver' then
-            SetVehicleCheatPowerIncrease(ourDriverVehicle, 0.6)
+            SetVehicleCheatPowerIncrease(currentVehicleId, 0.6)
+        elseif ourTeamType == 'defender' then
+            SetVehicleCheatPowerIncrease(currentVehicleId, 0.6)
         else
-            if lastVehicle == 'Riot' then
-                SetVehicleCheatPowerIncrease(ourDriverVehicle, 10.0)
-            elseif lastVehicle == 'Ambulance' then
-                SetVehicleCheatPowerIncrease(ourDriverVehicle, 1.6)
-            else
-                SetVehicleCheatPowerIncrease(ourDriverVehicle, 1.3)
-            end
+            SetVehicleCheatPowerIncrease(currentVehicleId, 1.3)
         end
         car = GetVehiclePedIsIn(GetPlayerPed(-1), false)
 
