@@ -48,7 +48,9 @@ local endPoints = {
     {name = 'Airport', destination = vector3(-1657.05, -3155.652, 13), vehicleModel = 'miljet', vehicleSpawnLocation = vector3(-1583,-2999,14), vehicleSpawnRotation = 240.0},
     {name = 'Ocean South', destination = vector3(1793.05, -2725.652, 1.5), vehicleModel = 'Jetmax', vehicleSpawnLocation = vector3(1804.1, -2759.189, -1.85), vehicleSpawnRotation = 205.0},
     {name = 'Ocean North', destination = vector3(-1610.05, 5261.652, 4.2), vehicleModel = 'Jetmax', vehicleSpawnLocation = vector3(-1601.945,5265.29,0), vehicleSpawnRotation = 358.0},
-    {name = 'Beach', destination = vector3(-1841.05, -1254.652, 9), vehicleModel = 'Jetmax', vehicleSpawnLocation = vector3(-1859.0, -1268.0,3.3), vehicleSpawnRotation = 204.0}
+    {name = 'Beach', destination = vector3(-1841.05, -1254.652, 9), vehicleModel = 'Jetmax', vehicleSpawnLocation = vector3(-1859.0, -1268.0,3.3), vehicleSpawnRotation = 204.0},
+    {name = 'Central Hangar', destination = vector3(1732.11, 3310.439, 40.7), vehicleModel = 'nimbus', vehicleSpawnLocation = vector3(1691.0, 3250.113, 40.55), vehicleSpawnRotation = 108.0},
+    {name = 'North Hangar', destination = vector3(2135.35, 4780.083, 40.7), vehicleModel = 'velum2', vehicleSpawnLocation = vector3(2109.68, 4801.245,40.71), vehicleSpawnRotation = 112.0}
 }
 local selectedEndPoint = nil
 local totalPlayers = 0
