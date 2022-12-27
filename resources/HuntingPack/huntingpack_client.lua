@@ -343,7 +343,6 @@ Citizen.CreateThread(function()
         if (speedinKMH < minSpeedInKMH or speedinKMH > maxSpeedInKMH)  and (GetGameTimer() - startTime) / 1000 >
             warmupTime and ourTeamType == 'driver' and not hasExtracted and not isExtracting then
             timeBelowSpeed = timeBelowSpeed + delta_time
-            timeBelowSpeed = 0
             timeBelowSpeed = math.clamp(timeBelowSpeed, 0, maxTimeBelowSpeed)
             if shouldNotifyBelowSpeed and ourTeamType == 'driver' then
                 TriggerServerEvent('OnNotifyBelowSpeed',
@@ -562,17 +561,20 @@ AddEventHandler('onClientGameTypeStart', function()
     exports.spawnmanager:setAutoSpawnCallback(function()
         local inModels = {'g_m_m_chicold_01'}
         if ourTeamType  == 'driver' then
-            inModels = { 'g_m_m_chicold_01', 's_m_m_movspace_01', 's_m_y_robber_01', 's_m_y_prisoner_01', 's_m_y_prismuscl_01', 's_m_y_factory_01' }
+            inModels = { 'g_m_m_chicold_01', 's_m_m_movspace_01', 's_m_y_robber_01', 's_m_y_prisoner_01', 's_m_y_prismuscl_01', 's_m_y_factory_01', 'a_f_y_hippie_01', 'a_f_y_smartcaspat_01', 
+            'a_m_m_fatlatin_01', 's_m_y_dealer_01', 'hc_gunman', 'u_m_y_rsranger_01' }
         elseif ourTeamType  == 'defender' then
             inModels = {'s_m_m_armoured_01', 's_m_m_armoured_02', 's_m_m_chemsec_01', 's_m_m_highsec_01', 's_m_y_uscg_01' }
         else
-            inModels = { 's_m_y_cop_01', 's_m_y_hwaycop_01', 's_m_y_sheriff_01', 's_m_y_ranger_01' }
+            inModels = { 's_m_y_cop_01', 's_m_y_hwaycop_01', 's_m_y_sheriff_01', 's_m_y_ranger_01', 's_m_m_fibsec_01' }
         end
+        selectedModel = inModels[math.random(1, #inModels)]
+        print('spawning as model ' .. selectedModel)
         exports.spawnmanager:spawnPlayer({
             x = spawnPos.x,
             y = spawnPos.y,
             z = spawnPos.z,
-            model = inModels[math.random(1, #inModels)],
+            model = selectedModel ,
             skipFade = true
         }, function()
             TriggerEvent('chat:addMessage', {
@@ -890,7 +892,7 @@ Citizen.CreateThread(function()
         if (scoreToBeat[GetPlayerName(PlayerId())] ~= nil) then
             localScoreToBeat = scoreToBeat[GetPlayerName(PlayerId())]
         end
-        local shouldCreateExtraction = currentScore > localScoreToBeat or ourTeamType ~= 'driver'
+        local shouldCreateExtraction = (currentScore > localScoreToBeat or ourTeamType ~= 'driver') and selectedEndPoint ~= nil
         if gameStarted and shouldCreateExtraction == true then
             if not extractionBlip then
                 print('creating extraction blip')
