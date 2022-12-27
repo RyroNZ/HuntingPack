@@ -76,8 +76,8 @@ local extractionBlip = nil
 local hasExtracted = false
 local isExtracting = false
 local extractionTimeRemaining = 20
-local possiblePoliceWeapons = { {model = 'pumpshotgun', ammo = 10, equip = false}, { model = 'pistol_mk2', ammo = 30, equip = true} }
-local possibleDriverWeapons = { {model = 'minismg', ammo = 60, equip = false} , {model = 'Pistol50', ammo = 18, equip = true} , {model = 'sniperrifle', ammo = 5, equip = false} }
+local possiblePoliceWeapons = { {model = 'pumpshotgun', ammo = 8, equip = false}, { model = 'pistol_mk2', ammo = 45, equip = true} }
+local possibleDriverWeapons = { {model = 'microsmg', ammo = 48, equip = false} , {model = 'Pistol50', ammo = 27, equip = true} , {model = 'sniperrifle', ammo = 5, equip = false} }
 local weaponHash = nil
 
 local function count_array(tab)

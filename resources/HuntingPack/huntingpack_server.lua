@@ -178,7 +178,7 @@ AddEventHandler('OnRequestedStart', function(startPoint)
     --end
     local driverIdxs = {}
     local totalDrivers = 1
-    if total_players >= 2 then
+    if total_players >= 5 then
         totalDrivers = 2
     end
 
