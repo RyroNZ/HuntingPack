@@ -178,7 +178,7 @@ AddEventHandler('OnRequestedStart', function(startPoint)
     --end
     local driverIdxs = {}
     local totalDrivers = 1
-    if total_players >= 6 then
+    if total_players >= 2 then
         totalDrivers = 2
     end
 
@@ -507,7 +507,7 @@ AddEventHandler('OnNotifyKilled', function(Name, LifeTime)
    
     defenders[#defenders + 1] = Name
     TriggerClientEvent('OnUpdateDefenders', -1, defenders)
-    
+
     outDriverIdx = -1
     for Idx, v in ipairs(drivers) do
         if v == GetPlayerName(source) then

@@ -301,9 +301,7 @@ Citizen.CreateThread(function()
         tick = GetGameTimer()
         Citizen.Wait(100) -- check all 15 seconds
         if (GetGameTimer() - startTime) / 1000 > warmupTime then
-            totalLife = (GetGameTimer() - lifeStart) / 1000
-        else
-            lifeStart = GetGameTimer()
+            totalLife =  totalLife + delta_time
         end
         if selectedEndPoint ~= nil then
             distanceToFinalLocation = #(GetEntityCoords(PlayerPedId()) - selectedEndPoint.destination)
@@ -351,10 +349,8 @@ Citizen.CreateThread(function()
             if (timeBelowSpeed >= maxTimeBelowSpeed or isVehicleDead == true) and ourTeamType == 'driver' then
                 -- blow up
                 SetEntityInvincible(GetVehiclePedIsIn(GetPlayerPed(-1), false), false)
-                SetEntityInvincible(GetVehiclePedIsIn(GetPlayerPed(-1), true), false)
                 SetEntityInvincible(GetPlayerPed(-1), false)
                 NetworkExplodeVehicle(GetVehiclePedIsIn(GetPlayerPed(-1), false), true, true, true)
-                NetworkExplodeVehicle(GetVehiclePedIsIn(GetPlayerPed(-1), true), true, true, true)
                 timeBelowSpeed = 0
                 print('Exploding vehicle ' .. timeBelowSpeed .. ' IsEntityDead? ' .. tostring(isVehicleDead) .. ' MaxTimeBlowSpeed? ' .. maxTimeBelowSpeed)
                 
@@ -879,6 +875,8 @@ Citizen.CreateThread(function()
             extractionBlip = nil
         end
 
+        local localPlayerName =  GetPlayerName(PlayerId())
+
         for player = 0, 64 do
             if player ~= currentPlayer and NetworkIsPlayerActive(player) then
                 local playerPed = GetPlayerPed(player)
@@ -888,15 +886,19 @@ Citizen.CreateThread(function()
                 RemoveBlip(blips[player])
                 local currentVehicleId = GetVehiclePedIsIn(playerPed, false)
                 local shouldCreateBlip = true
-                if has_value(drivers, playerName) then
+                if has_value(drivers, playerName) and not has_value(drivers, localPlayerName) then
                     if currentVehicleId == 0 and not forceDriverBlipVisible[playerName] then
                         shouldCreateBlip = false
                     end
-                elseif has_value(defenders, playerName) then
+                end
+
+                if has_value(defenders, playerName) and not has_value(defenders, localPlayerName) and not has_value(drivers, localPlayerName) then
                     shouldCreateBlip = false
                 end
 
-                if ourTeamType == 'driver' then
+
+
+                if (not has_value(drivers, playerName) and not has_value(defenders, playerName)) and has_value(drivers, localPlayerName) then
                     shouldCreateBlip = false
                 end
 
@@ -915,11 +917,11 @@ Citizen.CreateThread(function()
                     SetBlipNameToPlayerName(new_blip, player)
 
                     -- Make blip white
-                    if has_value(defenders, playerName) then
+                    if has_value(defenders, playerName) and not has_value(defenders, localPlayerName) then
                         SetBlipColour(new_blip, 64)
                         SetBlipCategory(new_blip, 380)
                         SetMpGamerTagColour(gamerTag, 0, 39)
-                    elseif has_value(drivers, playerName) then
+                    elseif has_value(drivers, playerName) and not has_value(drivers,  localPlayerName) then
                         SetBlipColour(new_blip, 1)
                         SetBlipCategory(new_blip, 380)
                         SetMpGamerTagColour(gamerTag, 0, 208)
@@ -939,11 +941,13 @@ Citizen.CreateThread(function()
                     blips[player] = new_blip
 
                     -- Add nametags above head
-                    if not has_value(drivers, playerName) and not has_value(defenders, playerName) then
+                    if (not has_value(drivers, playerName) or (has_value(drivers, playerName) and has_value(drivers, localPlayerName))) or (not has_value(defenders, playerName)  or (has_value(defenders, playerName) and has_value(defenders, localPlayerName))) then
                         SetMpGamerTagVisibility(gamerTag, 0, true)
                     else
                         SetMpGamerTagVisibility(gamerTag, 0, false)
                     end
+
+                    
                     
                 else
                     SetMpGamerTagVisibility(gamerTag, 0, false)
@@ -952,6 +956,18 @@ Citizen.CreateThread(function()
         end
     end
 
+end)
+
+Citizen.CreateThread(function()
+    local previousLocation = vector3(0, 0, 0)
+    while true do
+        Wait(100)
+        if drivers[1] ~= nil then
+            if  drivers[1] == GetPlayerName(PlayerId()) then
+                TriggerServerEvent('OnUpdateLifeTimers', totalLife)
+            end
+        end
+    end
 end)
 
 RegisterNetEvent("OnUpdateLifeTimers")
