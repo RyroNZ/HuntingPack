@@ -177,7 +177,7 @@ AddEventHandler('OnRequestedStart', function(startPoint)
     --end
     local driverIdxs = {}
     local totalDrivers = 1
-    if total_players >= 5 then
+    if total_players >= 6 then
         totalDrivers = 2
     end
 
@@ -321,7 +321,6 @@ end)
 RegisterNetEvent("OnRequestJoinInProgress")
 AddEventHandler('OnRequestJoinInProgress', function(playerId)
     if playerId ~= -1 then
-        print('source? ' .. playerId)
         local defenderSpawn = vector3(selectedSpawn.defenderSpawnVec.x, selectedSpawn.defenderSpawnVec.y, selectedSpawn.defenderSpawnVec.z)
         local attackerSpawn = vector3(selectedSpawn.attackerSpawnVec.x, selectedSpawn.attackerSpawnVec.y, selectedSpawn.attackerSpawnVec.z)
         if respawnPoint ~= vector3(0, 0, 0) then

@@ -52,7 +52,7 @@ local endPoints = {
 local selectedEndPoint = nil
 local totalPlayers = 0
 local currentRank = -1
-local scoreToBeat = -1
+local scoreToBeat = {}
 local timeRemainingOnFoot = 60
 local isLocalPlayerInVehicle = false
 local timeDead = 0
@@ -324,7 +324,7 @@ Citizen.CreateThread(function()
             SetPlayerWantedLevelNow(PlayerId(), false)
         end
         local currentVehicleId = GetVehiclePedIsIn(GetPlayerPed(-1), false)
-        if distanceToFinalLocation < distanceForExtraction and ourTeamType == 'driver' and gameStarted and currentVehicleId == 0  then
+        if distanceToFinalLocation < distanceForExtraction and ourTeamType == 'driver' and gameStarted and currentVehicleId == 0 and extractionBlip  then
             isExtracting = true
             extractionTimeRemaining = extractionTimeRemaining - 0.1
             if extractionTimeRemaining <= 0  and not hasExtracted then
@@ -456,20 +456,9 @@ Citizen.CreateThread(function()
                 end
                
                 currentScore = totalLife * (totalPlayers * 1.68 - 1)
-
-                local rankString = ''
-                local scoreToBeatString = ''
-                if currentRank ~= -1 then
-                    if currentScore < scoreToBeat then
-                        rankString = '~r~Rank #' .. currentRank .. (" (%.0f)"):format(scoreToBeat)
-                    else
-                        rankString = '~g~Rank #' .. currentRank .. (" (%.0f)"):format(scoreToBeat)
-                    end
-                end
-                rankString = ''
                 AddTextComponentString(
-                    ("~g~%.1f ~s~Seconds\n ~g~%.0f ~s~Score\n%s\n%s\n%s\n\n%s\n%s\n~y~%s Drivers"):format(totalLife,
-                                                                   currentScore, rankString, scoreToBeatString, extractionText, visibilityText, healthText, #drivers))
+                    ("~g~%.1f ~s~Seconds\n ~g~%.0f ~s~Score\n%s\n\n%s\n%s\n~y~%s Drivers"):format(totalLife,
+                                                                   currentScore, extractionText, visibilityText, healthText, #drivers))
 
                 DrawText(0.8, 0.1)                                                  
             end
@@ -709,8 +698,8 @@ AddEventHandler('onHuntingPackStart',
         selectedEndPoint = endPoints[math.random(1, #endPoints)]
     end
     
-    currentRank = -1
-    scoreToBeat = -1
+    currentRank = {}
+    scoreToBeat = {}
     selectedSpawn = inSelectedSpawn
     totalLife = 0
     respawnCooldown = 5
@@ -855,7 +844,7 @@ AddEventHandler('OnNotifyDriversVehicleSpawned', function(spawnPos, vehicleNetId
     while GetVehiclePedIsIn(playerPed, false) == 0 do
         Wait(1)
         local playerPed = PlayerPedId()
-        print('Spawning Ped ' .. GetPlayerName(PlayerId()) .. ' into drivers vehicle ' .. NetworkGetEntityFromNetworkId(vehicleNetId) .. ' seat position ' .. seatPosition)
+        --print('Spawning Ped ' .. GetPlayerName(PlayerId()) .. ' into drivers vehicle ' .. NetworkGetEntityFromNetworkId(vehicleNetId) .. ' seat position ' .. seatPosition)
         --TaskWarpPedIntoVehicle(playerPed, NetworkGetEntityFromNetworkId(vehicleNetId), seatPosition)
         SetPedIntoVehicle(playerPed, NetworkGetEntityFromNetworkId(vehicleNetId), seatPosition)
     end
@@ -897,7 +886,12 @@ Citizen.CreateThread(function()
         if ourTeamType == 'driver' then
             TriggerServerEvent('OnUpdateEndPoint', selectedEndPoint)
         end
-        if currentScore > scoreToBeat and gameStarted and totalLife > 0 then
+        local localScoreToBeat = 0
+        if (scoreToBeat[GetPlayerName(PlayerId())] ~= nil) then
+            localScoreToBeat = scoreToBeat[GetPlayerName(PlayerId())]
+        end
+        local shouldCreateExtraction = currentScore > localScoreToBeat or ourTeamType ~= 'driver'
+        if gameStarted and shouldCreateExtraction == true then
             if not extractionBlip then
                 print('creating extraction blip')
                 SetGpsActive(true)
@@ -1035,10 +1029,8 @@ AddEventHandler('OnClearRanks', function()
 end)
 
 AddEventHandler('OnUpdateRanks', function(name, lifetime, players, rank)
-    if name == driverName then
-        scoreToBeat = lifetime * (players * 1.68 - 1)
-        currentRank = rank
-    end
+    scoreToBeat[name] = lifetime * (players * 1.68 - 1)
+    currentRank[name] = rank
     for _, player in pairs(ranks) do
         if lifetime * (players * 1.68 - 1) > player.points *
             (player.players * 1.68 - 1) then
