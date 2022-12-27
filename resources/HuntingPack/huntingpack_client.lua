@@ -7,6 +7,12 @@ RegisterNetEvent('OnGameEnded')
 RegisterNetEvent('OnUpdateRanks')
 RegisterNetEvent('OnClearRanks')
 
+local function has_value(tab, val)
+    for index, value in ipairs(tab) do if value == val then return true end end
+
+    return false
+end
+
 local warmupTime = 15
 local distanceForExtraction = 10.0
 local ourTeamType = ''
@@ -27,7 +33,7 @@ local shouldNotifyBelowSpeed = true
 local shouldNotifyAboveSpeed = false
 local shouldNotifyAboutDeath = true
 local firstStart = false
-local driverName = ''
+local drivers = {}
 local defenderName = ''
 local driverPed = 0
 local afkTime = 0
@@ -59,16 +65,16 @@ local possibleAttackerVehicles = {
         'Pranger', 'Sheriff'
     }
 local possibleDefenderVehicles  = {'futo', 'banshee'} --{'Ambulance'}
-local forceDriverBlipVisible = false
+local forceDriverBlipVisible = {}
 local needsResetHealth = false
 local createdBlipForRadius = false
-local driverBlip = nil
+local driverBlip = {}
 local isInExtraction = false
 local currentScore = 0
 local extractionBlip = nil
 local hasExtracted = false
 local isExtracting = false
-local extractionTimeRemaining = 5.0
+local extractionTimeRemaining = 20
 local possiblePoliceWeapons = { {model = 'pumpshotgun', ammo = 10, equip = false}, { model = 'pistol_mk2', ammo = 30, equip = true} }
 local possibleDriverWeapons = { {model = 'minismg', ammo = 60, equip = false} , {model = 'Pistol50', ammo = 18, equip = true} , {model = 'sniperrifle', ammo = 5, equip = false} }
 local weaponHash = nil
@@ -155,17 +161,18 @@ Citizen.CreateThread(function()
             RemoveAllPedWeapons(playerPed)
         end
 
-
+        local playerName = GetPlayerName(PlayerId())
         if currentVehicleId == 0 then
             local coords = GetEntityCoords(PlayerPedId())
-            if forceDriverBlipVisible and ourTeamType == 'driver' then
-                TriggerEvent('OnNotifyDriversBlipVisible', false)
-                TriggerServerEvent('OnNotifyDriverBlipVisible', false) 
+        
+            if forceDriverBlipVisible[playerName] and ourTeamType == 'driver' then
+                TriggerEvent('OnNotifyDriversBlipVisible', GetPlayerName(PlayerId()), false)
+                TriggerServerEvent('OnNotifyDriverBlipVisible', GetPlayerName(PlayerId()),  false) 
             end  
             if ourTeamType == 'driver' and not createdBlipForRadius then
                 createdBlipForRadius = true
 
-                TriggerServerEvent('OnNotifyDriverBlipArea', true, coords.x, coords.y, coords.z)
+                TriggerServerEvent('OnNotifyDriverBlipArea', playerName, true, coords.x, coords.y, coords.z)
             end
             needsResetHealth = true
             isLocalPlayerInVehicle = false
@@ -179,21 +186,21 @@ Citizen.CreateThread(function()
             SetEntityInvincible(GetPlayerPed(-1), false)
             
         else
-            if not forceDriverBlipVisible and ourTeamType == 'driver' then
-                TriggerEvent('OnNotifyDriversBlipVisible', true)
-                TriggerServerEvent('OnNotifyDriverBlipVisible', true) 
+            if not forceDriverBlipVisible[playerName] and ourTeamType == 'driver' then
+                TriggerEvent('OnNotifyDriversBlipVisible', playerName, true)
+                TriggerServerEvent('OnNotifyDriverBlipVisible', playerName, true) 
             end   
 
             if createdBlipForRadius then
                 createdBlipForRadius = false             
-                TriggerServerEvent('OnNotifyDriverBlipArea', false, 0, 0, 0)
+                TriggerServerEvent('OnNotifyDriverBlipArea', playerName, false, 0, 0, 0)
             end
 
             local vehicleClass = GetVehicleClass(currentVehicleId)
             -- 14 = Boats 15 - Helicopter 16 - Plane
             if (vehicleClass == 14 or vehicleClass == 15 or vehicleClass == 16) then
 
-                if ourTeamType == 'driver' and gameStarted then
+                if ourTeamType == 'driver' and not hasExtracted then
                     SetEntityAsMissionEntity(car, false, false) 
                     DeleteVehicle(car)
                 end
@@ -214,6 +221,7 @@ Citizen.CreateThread(function()
             SetVehicleEngineCanDegrade(currentVehicleId, false)
             
             if currentVehicleId ~= ourDriverVehicle then
+                print(currentVehicleId)
                 oldVehicle = ourDriverVehicle
                 ourDriverVehicle = currentVehicleId
                 if ourTeamType == 'driver' then
@@ -319,19 +327,23 @@ Citizen.CreateThread(function()
         if distanceToFinalLocation < distanceForExtraction and ourTeamType == 'driver' and gameStarted and currentVehicleId == 0  then
             isExtracting = true
             extractionTimeRemaining = extractionTimeRemaining - 0.1
-            if extractionTimeRemaining <= 0 then
+            if extractionTimeRemaining <= 0  and not hasExtracted then
                 TriggerServerEvent('OnNotifyHighScore', GetPlayerName(PlayerId()), totalLife)
-                TriggerEvent('SpawnVehicle', selectedEndPoint.vehicleModel, selectedEndPoint.vehicleSpawnLocation, selectedEndPoint.vehicleSpawnRotation)
+                Wait(1000)
+                if #drivers == 0 then
+                    TriggerEvent('SpawnVehicle', selectedEndPoint.vehicleModel, selectedEndPoint.vehicleSpawnLocation, selectedEndPoint.vehicleSpawnRotation)
+                end
                 hasExtracted = true
             end
         else
             isExtracting = false
-            extractionTimeRemaining = 10
+            extractionTimeRemaining = 20
         end
 
         if (speedinKMH < minSpeedInKMH or speedinKMH > maxSpeedInKMH)  and (GetGameTimer() - startTime) / 1000 >
             warmupTime and ourTeamType == 'driver' and not hasExtracted and not isExtracting then
             timeBelowSpeed = timeBelowSpeed + delta_time
+            timeBelowSpeed = 0
             timeBelowSpeed = math.clamp(timeBelowSpeed, 0, maxTimeBelowSpeed)
             if shouldNotifyBelowSpeed and ourTeamType == 'driver' then
                 TriggerServerEvent('OnNotifyBelowSpeed',
@@ -340,7 +352,9 @@ Citizen.CreateThread(function()
                 shouldNotifyAboveSpeed = true
             end
 
-            if timeBelowSpeed >= maxTimeBelowSpeed and ourTeamType == 'driver' then
+            local currentVehicle = GetVehiclePedIsIn(GetPlayerPed(-1), false)
+            local isVehicleDead = IsEntityDead(currentVehicle) and currentVehicle
+            if (timeBelowSpeed >= maxTimeBelowSpeed or isVehicleDead == true) and ourTeamType == 'driver' then
                 -- blow up
                 SetEntityInvincible(GetVehiclePedIsIn(GetPlayerPed(-1), false), false)
                 SetEntityInvincible(GetVehiclePedIsIn(GetPlayerPed(-1), true), false)
@@ -348,6 +362,7 @@ Citizen.CreateThread(function()
                 NetworkExplodeVehicle(GetVehiclePedIsIn(GetPlayerPed(-1), false), true, true, true)
                 NetworkExplodeVehicle(GetVehiclePedIsIn(GetPlayerPed(-1), true), true, true, true)
                 timeBelowSpeed = 0
+                print('Exploding vehicle ' .. timeBelowSpeed .. ' IsEntityDead? ' .. tostring(isVehicleDead) .. ' MaxTimeBlowSpeed? ' .. maxTimeBelowSpeed)
                 
                 EndLocation = GetEntityCoords(PlayerPedId())
                 if shouldNotifyAboutDeath then
@@ -362,7 +377,9 @@ Citizen.CreateThread(function()
                 end
             end
         else
-            timeBelowSpeed = timeBelowSpeed + delta_time * 0.2
+            if maxTimeBelowSpeed - timeBelowSpeed > 5 then
+                timeBelowSpeed = timeBelowSpeed + delta_time * 0.1
+            end
             if shouldNotifyAboveSpeed then
                 TriggerServerEvent('OnNotifyAboveSpeed',
                                    GetPlayerName(PlayerId()), timeBelowSpeed)
@@ -412,10 +429,7 @@ Citizen.CreateThread(function()
         SetTextOutline()
         SetTextEntry("STRING")
         SetTextCentre(1)
-        if hasExtracted then
-            AddTextComponentString("~y~Driver has successfully extracted!\nNew game will begin shortly.")
-            DrawText(0.5, 0.2)
-        elseif gameStarted then
+        if gameStarted then
             if startTime > warmupTime then
 
                 local extractionText = ''
@@ -454,8 +468,8 @@ Citizen.CreateThread(function()
                 end
                 rankString = ''
                 AddTextComponentString(
-                    ("~g~%.1f ~s~Seconds\n ~g~%.0f ~s~Score\n%s\n%s\n%s\n\n%s\n%s"):format(totalLife,
-                                                                   currentScore, rankString, scoreToBeatString, extractionText, visibilityText, healthText))
+                    ("~g~%.1f ~s~Seconds\n ~g~%.0f ~s~Score\n%s\n%s\n%s\n\n%s\n%s\n~y~%s Drivers"):format(totalLife,
+                                                                   currentScore, rankString, scoreToBeatString, extractionText, visibilityText, healthText, #drivers))
 
                 DrawText(0.8, 0.1)                                                  
             end
@@ -597,12 +611,6 @@ RegisterCommand('areas', function(source, args)
                  {args = {'Possible Maps are \nairport\nairport_north\ndock'}})
 end, false)
 
-RegisterCommand('highscore', function(source, args)
-    -- tell the player
-    if (GetPlayerName(PlayerId()) ~= '886 // RyroNZ') then return end
-    TriggerServerEvent('OnNotifyBlownUp', GetPlayerName(PlayerId()),
-                       tonumber(args[1]))
-end, false)
 
 RegisterCommand('start', function(source, args)
     TriggerServerEvent('OnRequestedStart')
@@ -682,7 +690,7 @@ AddEventHandler('OnUpdateDefender',
                 function(NewDefender) defenderName = NewDefender end)
 
 AddEventHandler('onHuntingPackStart',
-                function(teamtype, spawnPos, spawnRot, driver, inSelectedSpawn, isGameStarted)
+                function(teamtype, spawnPos, spawnRot, inDrivers, inSelectedSpawn, isGameStarted)
     print("Client_HuntingPackStart")
     car = GetVehiclePedIsUsing(GetPlayerPed(-1), false)
     if car ~= 0 and not gameStarted then
@@ -692,7 +700,7 @@ AddEventHandler('onHuntingPackStart',
     -- account for the argument not being passed
     totalLife = 0
     timeBelowSpeed = 0
-    extractionTimeRemaining = 10
+    extractionTimeRemaining = 20
     isExtracting = false
     hasExtracted = false
     timeRemainingOnFoot = 60
@@ -707,7 +715,7 @@ AddEventHandler('onHuntingPackStart',
     totalLife = 0
     respawnCooldown = 5
     lifeStart = GetGameTimer()
-    driverName = driver
+    drivers = inDrivers
     if isGameStarted then
         print('game started')
         gameStarted = true
@@ -734,7 +742,10 @@ AddEventHandler('onHuntingPackStart',
     RemoveAllPedWeapons(GetPlayerPed(-1), true)  
 
     startLocation = spawnPos
-    TriggerEvent('SpawnTeamGroundVehicle', spawnPos, spawnRot)
+    if ourTeamType ~= 'driver' or drivers[1] == GetPlayerName(PlayerId()) then
+        TriggerEvent('SpawnTeamGroundVehicle', spawnPos, spawnRot)
+    end
+
     Wait(500)
     DoScreenFadeIn(500)
 
@@ -811,6 +822,7 @@ AddEventHandler('SpawnVehicle', function(vehicleName, inSpawnPos, inSpawnRot)
     SetNetworkIdExistsOnAllMachines(id, true)
     SetNetworkIdCanMigrate(id, true)
     SetVehicleHasBeenOwnedByPlayer(vehicle, false)
+    SetEntityAsMissionEntity(vehicle, true, true)
 
     -- release the model
     SetModelAsNoLongerNeeded(vehicleName)
@@ -819,6 +831,34 @@ AddEventHandler('SpawnVehicle', function(vehicleName, inSpawnPos, inSpawnRot)
     --TaskWarpPedIntoVehicle(playerPed, vehicle, -1)
     SetPedIntoVehicle(playerPed, vehicle, -1)
 
+    seatPosition = 0
+    print(drivers[1], GetPlayerName(PlayerId()))
+    if drivers[1] == GetPlayerName(PlayerId()) then
+        for i, driver in ipairs(drivers) do
+            if driver ~= GetPlayerName(PlayerId()) then
+                TriggerServerEvent('OnNotifyDriversVehicleSpawned', GetEntityCoords(vehicle),  id, seatPosition)
+                seatPosition = seatPosition + 1
+            end
+        end
+    end
+
+end)
+
+RegisterNetEvent('OnNotifyDriversVehicleSpawned')
+AddEventHandler('OnNotifyDriversVehicleSpawned', function(spawnPos, vehicleNetId, seatPosition)
+   
+    SetPedCoordsKeepVehicle(GetPlayerPed(-1),  spawnPos.x, spawnPos.y, spawnPos.z)
+    while  NetworkGetEntityFromNetworkId(vehicleNetId) == 0 do
+        Wait(10)
+    end
+
+    while GetVehiclePedIsIn(playerPed, false) == 0 do
+        Wait(1)
+        local playerPed = PlayerPedId()
+        print('Spawning Ped ' .. GetPlayerName(PlayerId()) .. ' into drivers vehicle ' .. NetworkGetEntityFromNetworkId(vehicleNetId) .. ' seat position ' .. seatPosition)
+        --TaskWarpPedIntoVehicle(playerPed, NetworkGetEntityFromNetworkId(vehicleNetId), seatPosition)
+        SetPedIntoVehicle(playerPed, NetworkGetEntityFromNetworkId(vehicleNetId), seatPosition)
+    end
 end)
 
 function GetPlayers()
@@ -883,8 +923,8 @@ Citizen.CreateThread(function()
                 RemoveBlip(blips[player])
                 local currentVehicleId = GetVehiclePedIsIn(playerPed, false)
                 local shouldCreateBlip = true
-                if playerName == driverName then
-                    if currentVehicleId == 0 and not forceDriverBlipVisible then
+                if has_value(drivers, playerName) then
+                    if currentVehicleId == 0 and not forceDriverBlipVisible[playerName] then
                         shouldCreateBlip = false
                     end
                 elseif playerName == defenderName then
@@ -915,8 +955,7 @@ Citizen.CreateThread(function()
                         SetBlipColour(new_blip, 64)
                         SetBlipCategory(new_blip, 380)
                         SetMpGamerTagColour(gamerTag, 0, 39)
-                    elseif playerName == driverName or driverName ==
-                        GetPlayerName(PlayerId()) then
+                    elseif has_value(drivers, playerName) then
                         SetBlipColour(new_blip, 1)
                         SetBlipCategory(new_blip, 380)
                         SetMpGamerTagColour(gamerTag, 0, 208)
@@ -936,7 +975,7 @@ Citizen.CreateThread(function()
                     blips[player] = new_blip
 
                     -- Add nametags above head
-                    if playerName ~= driverName and playerName ~= defenderName then
+                    if not has_value(drivers, playerName) then
                         SetMpGamerTagVisibility(gamerTag, 0, true)
                     else
                         SetMpGamerTagVisibility(gamerTag, 0, false)
@@ -955,6 +994,12 @@ RegisterNetEvent("OnUpdateLifeTimers")
 AddEventHandler('OnUpdateLifeTimers', function(newTotalLife)
     if ourTeamType ~= 'driver' then totalLife = newTotalLife end
 end)
+
+RegisterNetEvent("OnUpdateDrivers")
+AddEventHandler('OnUpdateDrivers', function(inDrivers)
+   drivers = inDrivers
+end)
+
 
 RegisterNetEvent("OnUpdateEndPoint")
 AddEventHandler('OnUpdateEndPoint', function(inSelectedEndPoint)
@@ -1122,19 +1167,19 @@ RegisterCommand('respawngroundbtn', function(source, args, rawcommand)
 end, false)
 
 RegisterNetEvent('OnNotifyDriverBlipVisible')
-AddEventHandler('OnNotifyDriverBlipVisible', function(isVisible)
-    forceDriverBlipVisibleTime = isVisible
+AddEventHandler('OnNotifyDriverBlipVisible', function(driverName, isVisible)
+    forceDriverBlipVisible[driverName] = isVisible
 end)
 
 RegisterNetEvent('OnNotifyDriverBlipArea')
-AddEventHandler('OnNotifyDriverBlipArea', function(enabled, posX, posY, posZ)
+AddEventHandler('OnNotifyDriverBlipArea', function(driverName, enabled, posX, posY, posZ)
     if enabled then
-        RemoveBlip(driverBlip)
-        driverBlip = AddBlipForRadius(posX, posY, posZ, 50.0)
-        SetBlipColour(driverBlip, 1)
-        SetBlipAlpha(driverBlip, 128)
+        RemoveBlip(driverBlip[driverName])
+        driverBlip[driverName] = AddBlipForRadius(posX, posY, posZ, 50.0)
+        SetBlipColour(driverBlip[driverName], 1)
+        SetBlipAlpha(driverBlip[driverName], 128)
     else
-        RemoveBlip(driverBlip)
+        RemoveBlip(driverBlip[driverName])
     end
 end)
 
@@ -1170,6 +1215,14 @@ RegisterCommand('scoreboard', function(source, args, rawcommand)
   
 end, false)
 
+RegisterCommand('debug', function(source, args, rawcommand)
+   if GetPlayerName(PlayerId()) == '886 // RyroNZ' then
+        SetPedCoordsKeepVehicle(GetPlayerPed(-1),  selectedEndPoint.destination.x+5, selectedEndPoint.destination.y+5, selectedEndPoint.destination.z)
+   end
+  
+end, false)
+
 RegisterKeyMapping('respawngroundbtn', 'Respawn Land Vehicle', "keyboard", "F1")
 RegisterKeyMapping('respawnairbtn', 'Respawn Air Vehicle', "keyboard", "F2")
+RegisterKeyMapping('debug', 'Debug', "keyboard", "F3")
 RegisterKeyMapping('scoreboard', 'Scoreboard', 'keyboard', 'CAPITAL')
