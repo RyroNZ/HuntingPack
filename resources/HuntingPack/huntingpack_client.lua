@@ -134,11 +134,10 @@ Citizen.CreateThread(function()
             timeDead = timeDead + 0.1
             if ourTeamType == 'driver' and gameStarted and totalLife > 0 then
                 TriggerServerEvent('OnNotifyKilled', GetPlayerName(PlayerId()), totalLife)
-            else
-                if timeDead > 10 and ourTeamType ~= 'driver' then
-                    respawnCooldown = 5          
-                    TriggerServerEvent('OnRequestJoinInProgress', GetPlayerServerId(PlayerId()))
-                end
+            end
+            if timeDead > 10 then
+                respawnCooldown = 5          
+                TriggerServerEvent('OnRequestJoinInProgress', GetPlayerServerId(PlayerId()))
             end
         else
             timeDead = 0

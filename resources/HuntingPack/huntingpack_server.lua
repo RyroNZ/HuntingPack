@@ -322,39 +322,48 @@ end)
 RegisterNetEvent("OnRequestJoinInProgress")
 AddEventHandler('OnRequestJoinInProgress', function(playerId)
     if playerId ~= -1 then
-        local defenderSpawn = vector3(selectedSpawn.defenderSpawnVec.x, selectedSpawn.defenderSpawnVec.y, selectedSpawn.defenderSpawnVec.z)
-        local attackerSpawn = vector3(selectedSpawn.attackerSpawnVec.x, selectedSpawn.attackerSpawnVec.y, selectedSpawn.attackerSpawnVec.z)
-        if respawnPoint ~= vector3(0, 0, 0) then
-            if  has_value(defenders, playerId) then
-                print('Starting ' .. GetPlayerName(playerId) .. ' in progress as defender')
-                TriggerClientEvent('onHuntingPackStart', playerId, 'defender',
-                                   respawnPoint +
-                                       vector3(math.random(-10, 10),
-                                               math.random(-10, 10), 0),
-                                   respawnRot, drivers, selectedSpawn, gameStarted)
-            else
-                print('Starting ' .. GetPlayerName(playerId) .. ' in progress as attacker')
-                TriggerClientEvent('onHuntingPackStart', playerId, 'attacker',
-                                   respawnPoint +
-                                       vector3(math.random(-10, 10),
-                                               math.random(-10, 10), 0),
-                                   respawnRot, drivers, selectedSpawn, gameStarted)
+        outDriverIdx = -1
+        for Idx, v in ipairs(drivers) do
+            if v == GetPlayerName(playerId) then
+            outDriverIdx = Idx
             end
-        else
-            if has_value(defenders, playerId) then
-                print('Starting ' .. GetPlayerName(playerId) .. ' in progress as defender')
-                TriggerClientEvent('onHuntingPackStart', playerId, 'defender',
-                                    defenderSpawn +
-                                       vector3(math.random(-10, 10),
-                                               math.random(-10, 10), 0),
-                                   respawnRot, drivers, selectedSpawn, gameStarted)
+        end
+
+        if outDriverIdx == -1 then
+            local defenderSpawn = vector3(selectedSpawn.defenderSpawnVec.x, selectedSpawn.defenderSpawnVec.y, selectedSpawn.defenderSpawnVec.z)
+            local attackerSpawn = vector3(selectedSpawn.attackerSpawnVec.x, selectedSpawn.attackerSpawnVec.y, selectedSpawn.attackerSpawnVec.z)
+            if respawnPoint ~= vector3(0, 0, 0) then
+                if  has_value(defenders, playerId) then
+                    print('Starting ' .. GetPlayerName(playerId) .. ' in progress as defender')
+                    TriggerClientEvent('onHuntingPackStart', playerId, 'defender',
+                                    respawnPoint +
+                                        vector3(math.random(-10, 10),
+                                                math.random(-10, 10), 0),
+                                    respawnRot, drivers, selectedSpawn, gameStarted)
+                else
+                    print('Starting ' .. GetPlayerName(playerId) .. ' in progress as attacker')
+                    TriggerClientEvent('onHuntingPackStart', playerId, 'attacker',
+                                    respawnPoint +
+                                        vector3(math.random(-10, 10),
+                                                math.random(-10, 10), 0),
+                                    respawnRot, drivers, selectedSpawn, gameStarted)
+                end
             else
-                print('Starting ' .. GetPlayerName(playerId) .. ' in progress as attacker')
-                TriggerClientEvent('onHuntingPackStart', playerId, 'attacker',
-                    attackerSpawn +
-                                       vector3(math.random(-10, 10),
-                                               math.random(-10, 10), 0),
-                                   respawnRot, drivers, selectedSpawn, gameStarted)
+                if has_value(defenders, playerId) then
+                    print('Starting ' .. GetPlayerName(playerId) .. ' in progress as defender')
+                    TriggerClientEvent('onHuntingPackStart', playerId, 'defender',
+                                        defenderSpawn +
+                                        vector3(math.random(-10, 10),
+                                                math.random(-10, 10), 0),
+                                    respawnRot, drivers, selectedSpawn, gameStarted)
+                else
+                    print('Starting ' .. GetPlayerName(playerId) .. ' in progress as attacker')
+                    TriggerClientEvent('onHuntingPackStart', playerId, 'attacker',
+                        attackerSpawn +
+                                        vector3(math.random(-10, 10),
+                                                math.random(-10, 10), 0),
+                                    respawnRot, drivers, selectedSpawn, gameStarted)
+                end
             end
         end
     end
@@ -408,7 +417,7 @@ AddEventHandler('OnNotifyHighScore', function(Name, LifeTime)
     TriggerClientEvent('OnUpdateDrivers', -1, drivers)
     if #drivers == 0 then
         gameStarted = false
-        timerCountdown = 60
+        timerCountdown = 15
         for _, playerId in ipairs(GetSpawnedPlayers()) do
             TriggerClientEvent('OnGameEnded', playerId)
         end      
@@ -466,9 +475,6 @@ AddEventHandler('OnNotifyHighScore', function(Name, LifeTime)
         saveTable(ranks, 'ranks' .. selectedSpawn.name .. '.json')
     end
 
-   
-    TriggerEvent('OnRequestJoinInProgress', source)
-
 end)
 
 RegisterNetEvent('OnNotifyDriverBlipArea')
@@ -496,8 +502,8 @@ AddEventHandler('OnNotifyKilled', function(Name, LifeTime)
        return
     end    
 
-    TriggerEvent('OnRequestJoinInProgress', source)
-
+   
+    defenders[#defenders + 1] = source
     outDriverIdx = -1
     for Idx, v in ipairs(drivers) do
         if v == GetPlayerName(source) then
@@ -508,6 +514,8 @@ AddEventHandler('OnNotifyKilled', function(Name, LifeTime)
     if outDriverIdx ~= -1 then
         table.remove(drivers, outDriverIdx)
     end
+
+   
 
     send_global_message(GetPlayerName(source) .. ' has been killed! Total Life: ' .. LifeTime ..
     ' Seconds\nDrivers Remaining: ' .. #drivers)
@@ -520,7 +528,7 @@ AddEventHandler('OnNotifyKilled', function(Name, LifeTime)
 
     if #drivers == 0 then
         gameStarted = false
-        timerCountdown = 10
+        timerCountdown = 15
         newhighScoreIdx = -1
         for _, playerId in ipairs(GetSpawnedPlayers()) do
             TriggerClientEvent('OnGameEnded', playerId)
