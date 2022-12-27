@@ -15,6 +15,20 @@ local startTime = GetGameTimer()
 local totalLife = 0
 local defenderPlayerId = -1
 
+local function has_value(tab, val)
+    for index, value in ipairs(tab) do if value == val then return true end end
+
+    return false
+end
+
+local function count_array(tab)
+    count = 0
+    for index, value in ipairs(tab) do count = count + 1 end
+
+    return count
+end
+
+
 
 function GetSpawnedPlayers() return spawnedPlayers end
 
@@ -85,19 +99,6 @@ function saveTable(t, filename)
         print('Saved Table At ' .. path)
         return true
     end
-end
-
-local function has_value(tab, val)
-    for index, value in ipairs(tab) do if value == val then return true end end
-
-    return false
-end
-
-local function count_array(tab)
-    count = 0
-    for index, value in ipairs(tab) do count = count + 1 end
-
-    return count
 end
 
 function loadTable(filename)
