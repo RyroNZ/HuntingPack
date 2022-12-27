@@ -192,6 +192,7 @@ AddEventHandler('OnRequestedStart', function(startPoint)
     drivers = {}
     attackers = {}
     defenders = {}
+    TriggerClientEvent('OnUpdateDefenders', -1, defenders)
 
     driverName = ''
 
@@ -333,7 +334,7 @@ AddEventHandler('OnRequestJoinInProgress', function(playerId)
             local defenderSpawn = vector3(selectedSpawn.defenderSpawnVec.x, selectedSpawn.defenderSpawnVec.y, selectedSpawn.defenderSpawnVec.z)
             local attackerSpawn = vector3(selectedSpawn.attackerSpawnVec.x, selectedSpawn.attackerSpawnVec.y, selectedSpawn.attackerSpawnVec.z)
             if respawnPoint ~= vector3(0, 0, 0) then
-                if  has_value(defenders, playerId) then
+                if  has_value(defenders, GetPlayerName(playerId)) then
                     print('Starting ' .. GetPlayerName(playerId) .. ' in progress as defender')
                     TriggerClientEvent('onHuntingPackStart', playerId, 'defender',
                                     respawnPoint +
@@ -349,7 +350,7 @@ AddEventHandler('OnRequestJoinInProgress', function(playerId)
                                     respawnRot, drivers, selectedSpawn, gameStarted)
                 end
             else
-                if has_value(defenders, playerId) then
+                if has_value(defenders, GetPlayerName(playerId)) then
                     print('Starting ' .. GetPlayerName(playerId) .. ' in progress as defender')
                     TriggerClientEvent('onHuntingPackStart', playerId, 'defender',
                                         defenderSpawn +
@@ -397,7 +398,8 @@ AddEventHandler('OnNotifyHighScore', function(Name, LifeTime)
         return
     end
 
-    defenders[#defenders + 1] = source
+    defenders[#defenders + 1] = Name
+    TriggerClientEvent('OnUpdateDefenders', -1, defenders)
 
     outDriverIdx = -1
     for Idx, v in ipairs(drivers) do
@@ -503,7 +505,9 @@ AddEventHandler('OnNotifyKilled', function(Name, LifeTime)
     end    
 
    
-    defenders[#defenders + 1] = source
+    defenders[#defenders + 1] = Name
+    TriggerClientEvent('OnUpdateDefenders', -1, defenders)
+    
     outDriverIdx = -1
     for Idx, v in ipairs(drivers) do
         if v == GetPlayerName(source) then
