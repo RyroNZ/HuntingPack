@@ -491,7 +491,7 @@ Citizen.CreateThread(function()
                 SetTextOutline()
                 SetTextEntry("STRING")
                 SetTextCentre(1)
-                if defenderName == GetPlayerName(PlayerId()) then
+                if has_value(defenders, GetPlayerName(PlayerId())) then
                     AddTextComponentString(
                         ("~y~Do Anything You Want!\n%.1f"):format(warmupTime -
                                                                    (GetGameTimer() -
@@ -499,7 +499,7 @@ Citizen.CreateThread(function()
                                                                    1000))
                 else
                     AddTextComponentString(
-                        ("~y~Do Anything You Want!\n%.1f"):format(warmupTime -
+                        ("~y~Stop the truck from extracting!\n%.1f"):format(warmupTime -
                                                              (GetGameTimer() -
                                                                  startTime) /
                                                              1000))
