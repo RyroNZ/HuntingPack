@@ -562,7 +562,7 @@ AddEventHandler('onClientGameTypeStart', function()
         local inModels = {'g_m_m_chicold_01'}
         if ourTeamType  == 'driver' then
             inModels = { 'g_m_m_chicold_01', 's_m_m_movspace_01', 's_m_y_robber_01', 's_m_y_prisoner_01', 's_m_y_prismuscl_01', 's_m_y_factory_01', 'a_f_y_hippie_01', 'a_f_y_smartcaspat_01', 
-            'a_m_m_fatlatin_01', 's_m_y_dealer_01', 'hc_gunman', 'u_m_y_rsranger_01' }
+            'a_m_m_fatlatin_01', 's_m_y_dealer_01', 'u_m_y_rsranger_01' }
         elseif ourTeamType  == 'defender' then
             inModels = {'s_m_m_armoured_01', 's_m_m_armoured_02', 's_m_m_chemsec_01', 's_m_m_highsec_01', 's_m_y_uscg_01' }
         else
