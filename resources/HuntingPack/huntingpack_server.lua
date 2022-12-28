@@ -148,10 +148,7 @@ selectedSpawn = spawns[math.random(1, total_spawns)]
 
 local function send_global_message(text)
     print('Sending Global Message ' .. text)
-    for _, playerId in ipairs(GetPlayers()) do
-        local name = GetPlayerName(playerId)
-        TriggerClientEvent('OnReceivedChatMessage', playerId, text)
-    end
+    TriggerClientEvent('OnReceivedServerNotification', -1, text)
 end
 
 RegisterNetEvent("OnRequestedStart")
@@ -210,16 +207,12 @@ AddEventHandler('OnRequestedStart', function(startPoint)
         if has_value(driverIdxs, i) then
             driverName = name
             send_global_message(
-                ('^1%s was selected as the driver!'):format(name))
+                ('%s was selected as the driver!'):format(name))
             TriggerClientEvent('onHuntingPackStart', playerId, 'driver',
                                selectedSpawn.driverSpawnVec, selectedSpawn.driverSpawnRot, drivers, selectedSpawn, true)
-            maxTimeBelowSpeed = 30
-            if total_players == 1 then maxTimeBelowSpeed = 30 end
+            maxTimeBelowSpeed = math.random(0.0, 60.0)
             TriggerClientEvent('OnUpdateMinSpeed', playerId, 45,
                                maxTimeBelowSpeed)
-            send_global_message('^3' .. total_players ..
-                                    ' players in game. Vehicle must be stopped for ' ..
-                                    maxTimeBelowSpeed .. ' seconds')
             print('Spawning ' .. name .. ' as the driver')
         end
     end
@@ -238,6 +231,7 @@ AddEventHandler('OnRequestedStart', function(startPoint)
                                                math.random(-10, 10), 0),
                                    selectedSpawn.driverSpawnRot, drivers, selectedSpawn, true)
             else
+                attackers[#attackers+1] = name
                 TriggerClientEvent('onHuntingPackStart', playerId, 'attacker',
                                    attackerSpawn +
                                        vector3(math.random(-10, 10),
@@ -262,7 +256,7 @@ AddEventHandler('OnNotifyAboveSpeed', function(name, timeBelowSpeed)
     timeRemaining = maxTimeBelowSpeed - timeBelowSpeed
     if timeRemaining < 1.0 and timeRemaining > 0.0 then
         send_global_message(
-            "^2" .. name .. " has has gone above the speed! .. " ..
+            "" .. name .. " has has gone above the speed! .. " ..
                 timeRemaining .. ' seconds remaining!')
     end
 end)
@@ -343,6 +337,10 @@ AddEventHandler('OnRequestJoinInProgress', function(playerId)
                                     respawnRot, drivers, selectedSpawn, gameStarted)
                 else
                     print('Starting ' .. GetPlayerName(playerId) .. ' in progress as attacker')
+                    if not has_value(attackers, GetPlayerName(playerId)) then
+                        attackers[#attackers+1] = name
+                        TriggerClientEvent('OnUpdateAttackers', -1, attackers)
+                    end
                     TriggerClientEvent('onHuntingPackStart', playerId, 'attacker',
                                     respawnPoint +
                                         vector3(math.random(-10, 10),
@@ -359,6 +357,10 @@ AddEventHandler('OnRequestJoinInProgress', function(playerId)
                                     respawnRot, drivers, selectedSpawn, gameStarted)
                 else
                     print('Starting ' .. GetPlayerName(playerId) .. ' in progress as attacker')
+                    if not has_value(attackers, GetPlayerName(playerId)) then
+                        attackers[#attackers+1] = name
+                        TriggerClientEvent('OnUpdateAttackers', -1, attackers)
+                    end
                     TriggerClientEvent('onHuntingPackStart', playerId, 'attacker',
                         attackerSpawn +
                                         vector3(math.random(-10, 10),
@@ -419,7 +421,7 @@ AddEventHandler('OnNotifyHighScore', function(Name, LifeTime)
     TriggerClientEvent('OnUpdateDrivers', -1, drivers)
     if #drivers == 0 then
         gameStarted = false
-        timerCountdown = 15
+        timerCountdown = 40
         for _, playerId in ipairs(GetSpawnedPlayers()) do
             TriggerClientEvent('OnGameEnded', playerId)
         end      
@@ -427,7 +429,7 @@ AddEventHandler('OnNotifyHighScore', function(Name, LifeTime)
 
     newhighScoreIdx = -1
 
-    send_global_message('^6' .. Name .. ' has successfully extracted! Drivers Remaining: ' .. #drivers)
+    send_global_message('' .. Name .. ' has successfully extracted! Drivers Remaining: ' .. #drivers)
    
 
     local isOnLeaderboard = false
@@ -521,7 +523,7 @@ AddEventHandler('OnNotifyKilled', function(Name, LifeTime)
 
    
 
-    send_global_message(GetPlayerName(source) .. ' has been killed! Total Life: ' .. LifeTime ..
+    send_global_message(GetPlayerName(source) .. ' has been killed! Total Life: ' .. math.floor(LifeTime) ..
     ' Seconds\nDrivers Remaining: ' .. #drivers)
 
     for i, d in ipairs(drivers) do
@@ -557,7 +559,7 @@ Citizen.CreateThread(function()
             else
                 timerCountdown = timerCountdown - 1
             end
-            send_global_message('^1' .. timerCountdown ..
+            send_global_message('' .. timerCountdown ..
                                     " seconds until game starts!")
             if timerCountdown < 0 then
                 gameStarted = true
