@@ -83,8 +83,8 @@ local extractionBlip = nil
 local hasExtracted = false
 local isExtracting = false
 local extractionTimeRemaining = 20
-local possiblePoliceWeapons = {  { model = 'Nightstick', ammo = 1, equip = true, weaponLevel = 1}, { model = 'pistol_mk2', ammo = 18, equip = true, weaponLevel = 2}, {model = 'pumpshotgun', ammo = 8, equip = false, weaponLevel = 3}, {model = 'SpecialCarbine', ammo = 30, equip = false, weaponLevel = 4} }
-local possibleDriverWeapons = { {model = 'knife', equip = false, ammo = 1, weaponLevel = 0}, {model = 'Pistol50', ammo = 27, equip = true, weaponLevel = 1}, {model = 'microsmg', ammo = 48, equip = false, weaponLevel = 2} , {model = 'CompactRifle', ammo = 60, equip = false, weaponLevel = 3}, {model = 'sniperrifle', ammo = 15, equip = false, weaponLevel = 4} }
+local possiblePoliceWeapons = {  { model = 'Nightstick', ammo = 1, equip = true, weaponLevel = 0}, { model = 'pistol_mk2', ammo = 18, equip = true, weaponLevel = 2}, {model = 'pumpshotgun', ammo = 24, equip = false, weaponLevel = 3}, {model = 'SpecialCarbine', ammo = 30, equip = false, weaponLevel = 4} }
+local possibleDriverWeapons = { {model = 'knife', equip = false, ammo = 1, weaponLevel = 0}, {model = 'Pistol50', ammo = 18, equip = true, weaponLevel = 1}, {model = 'microsmg', ammo = 48, equip = false, weaponLevel = 2} , {model = 'CompactRifle', ammo = 60, equip = false, weaponLevel = 3}, {model = 'sniperrifle', ammo = 15, equip = false, weaponLevel = 4} }
 local weaponHash = nil
 local currentVehicleId = 0
 local triggeredLowTimeSound = false
@@ -204,6 +204,22 @@ Citizen.CreateThread(function()
 
         local playerName = GetPlayerName(PlayerId())
 
+        local currentHealth = GetEntityHealth(GetPlayerPed(-1))
+        local currentArmor = GetPedArmour(GetPlayerPed(-1))
+        local maxHealth = 200
+        local maxArmour = 50
+        if IsDriver() then 
+            maxHealth = 400
+            maxArmour = 100
+        end
+        if currentHealth < maxHealth then
+            SetPedMaxHealth(GetPlayerPed(-1), maxHealth)
+            SetEntityHealth(GetPlayerPed(-1), currentHealth + 0.3)
+        end
+        if currentArmor < 100 then
+            SetPedArmour(GetPlayerPed(-1), currentArmor + 0.3)
+        end
+
         if currentVehicleId == 0 then
             local coords = GetEntityCoords(PlayerPedId())
         
@@ -246,20 +262,6 @@ Citizen.CreateThread(function()
             if createdBlipForRadius then
                 createdBlipForRadius = false             
                 TriggerServerEvent('OnNotifyDriverBlipArea', playerName, false, 0, 0, 0)
-            end
-
-
-            if needsResetHealth then
-                needsResetHealth = false
-                if IsDriver() then
-                    SetPedMaxHealth(GetPlayerPed(-1), 400)
-                    SetEntityHealth(GetPlayerPed(-1), 400)
-                    SetPedArmour(GetPlayerPed(-1), 100)
-                else
-                    SetPedMaxHealth(GetPlayerPed(-1), 200)
-                    SetEntityHealth(GetPlayerPed(-1), 200)
-                    SetPedArmour(GetPlayerPed(-1), 0)
-                end
             end
 
             SetVehicleEngineCanDegrade(currentVehicleId, false)
@@ -672,6 +674,7 @@ AddEventHandler('OnUpdateTotalPlayers',
 AddEventHandler('onHuntingPackStart',
                 function(teamtype, spawnPos, spawnRot, inDrivers, inSelectedSpawn, isGameStarted)
     print("Client_HuntingPackStart")
+    DisablePlayerVehicleRewards(GetPlayerPed(-1))
     car = GetVehiclePedIsUsing(GetPlayerPed(-1), false)
     if car ~= 0 and not gameStarted then
         SetEntityAsMissionEntity(car, false, false) 
@@ -679,7 +682,6 @@ AddEventHandler('onHuntingPackStart',
     end
     -- account for the argument not being passed
     startTime = GetGameTimer()
-    weaponUpgradeLevel = 0
     totalLife = 0
     timeBelowSpeed = 0
     extractionTimeRemaining = 20

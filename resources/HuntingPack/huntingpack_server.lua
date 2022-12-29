@@ -203,11 +203,12 @@ AddEventHandler('OnRequestedStart', function(startPoint)
             driverIdxs[#driverIdxs + 1] = driverIdx
         end
     end
-
+    weaponUpgradeLevel = 0
     drivers = {}
     attackers = {}
     defenders = {}
     TriggerClientEvent('OnUpdateDefenders', -1, defenders)
+
 
     driverName = ''
 
@@ -266,6 +267,14 @@ RegisterNetEvent("OnNotifyBelowSpeed")
 AddEventHandler('OnNotifyBelowSpeed', function(name)
     isBelowSpeed = true
     -- send_global_message(name .. " has dropped below the speed!")
+end)
+
+CreateThread(function()
+	while true do
+		-- draw every frame
+        TriggerClientEvent('OnWeaponUpgrade', -1, weaponUpgradeLevel)
+        Wait(1000)
+	end
 end)
 
 RegisterNetEvent("OnNotifyAboveSpeed")
