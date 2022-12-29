@@ -14,6 +14,7 @@ local lifeStart = GetGameTimer()
 local startTime = GetGameTimer()
 local totalLife = 0
 local defenderPlayerId = -1
+local killsUntilWeaponUpgrade = 3
 local weaponUpgradeLevel = 0
 
 local function has_value(tab, val)
@@ -49,9 +50,13 @@ AddEventHandler('baseevents:onPlayerKilled', function(killedBy, data)
     print(GetPlayerName(killedBy) .. ' has killed ' .. GetPlayerName(source) )
     if has_value(drivers, GetPlayerName(killedBy)) and has_value(attackers, GetPlayerName(source)) then
       -- weapon upgrade
-      weaponUpgradeLevel = weaponUpgradeLevel + 1
-      send_global_message(('Weapons have been upgraded. Level %i'):format(weaponUpgradeLevel))
-      TriggerClientEvent('OnWeaponUpgrade', -1, weaponUpgradeLevel)
+      killsUntilWeaponUpgrade = killsUntilWeaponUpgrade - 1
+      if killsUntilWeaponUpgrade <= 0 then
+        weaponUpgradeLevel = weaponUpgradeLevel + 1
+        killsUntilWeaponUpgrade = 3
+        send_global_message(('Weapons have been upgraded. Level %i'):format(weaponUpgradeLevel))
+        TriggerClientEvent('OnWeaponUpgrade', -1, weaponUpgradeLevel)
+    end
       
     end
 end)

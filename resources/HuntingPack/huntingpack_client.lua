@@ -66,9 +66,8 @@ local timeRemainingOnFoot = 60
 local isLocalPlayerInVehicle = false
 local timeDead = 0
 local oldVehicle = 0
-local possibleDriverVehicles = {'Firetruk', 'stockade', 'stockade3', 'terbyte', 'pounder2', 
-'flatbed', 'rubble', 'mixer', 'hotknife', 'patriot2', 'airbus', 'coach', 
-'banshee', 'futo', 'tourbus', 'trash', 'lguard'}
+local possibleDriverVehicles = {'Firetruk', 'stockade', 'stockade3', 'pounder2', 'coach', 
+'banshee', 'futo', 'tourbus', 'trash', 'lguard', 'Comet3', 'Feltzer2', 'Elegy2', 'Kuruma', 'RapidGT'}
 local possibleAttackerVehicles = {
         'FBI', 'FBI2', 'Police3', 'Sheriff2', 'Police2', 'Police', 'Police4',
         'Pranger', 'Sheriff', 'policeb', 'policet'
@@ -289,7 +288,6 @@ Citizen.CreateThread(function()
                 else
                     SetVehicleFuelLevel(currentVehicleId, 100.0)
                 end
-                SetEntityInvincible(GetPlayerPed(-1), false)
             end
         end
         -- local pos = GetEntityCoords(playerPed) 
@@ -384,7 +382,7 @@ Citizen.CreateThread(function()
             local currentVehicle = GetVehiclePedIsIn(GetPlayerPed(-1), false)
             local isVehicleDead = IsEntityDead(currentVehicle) and currentVehicle
             if GetIsVehicleEngineRunning(currentVehicle) then
-                timeBelowSpeed = timeBelowSpeed + delta_time
+                timeBelowSpeed = timeBelowSpeed + (delta_time * (speedinKMH * 0.01))
                 timeBelowSpeed = math.clamp(timeBelowSpeed, 0, maxTimeBelowSpeed)
             end
             if shouldNotifyBelowSpeed and IsDriver() then
@@ -1164,7 +1162,7 @@ function DrawRules(onlyTeamRules)
             if IsDriver() then
                 add_value(textArray, '[~r~Driver~s~]')
                 add_value(textArray, '~s~You must make it to the ~y~extraction point~s~ to set a score')
-                add_value(textArray, '~s~You are ~y~immune~s~ to all damage while inside a vehicle that has not run out ~y~fuel')
+                add_value(textArray, '~s~You are ~y~immune~s~ to all damage while inside a vehicle')
                 add_value(textArray, '~s~If you run out of ~y~fuel~s~, you\'ll need to find another vehicle to keep moving')
                 add_value(textArray, '~s~You have a limited time on foot, if the timer reaches ~y~zero~s~ you die')
                 add_value(textArray, '~s~While on foot you may be ~y~killed ~s~but you are ~y~hidden~s~ on radar from the ~b~Police')
@@ -1173,7 +1171,7 @@ function DrawRules(onlyTeamRules)
             if IsPolice() then
                 add_value(textArray, '[~b~Police~s~]')
                 add_value(textArray, '~s~You must try and stop the ~r~Driver~s~ from reaching the extraction point by any means')
-                add_value(textArray, '~s~You cannot kill the ~r~Driver~s~ while they are in any vehicle (that has fuel)')
+                add_value(textArray, '~s~You cannot kill the ~r~Driver~s~ while they are in any vehicle')
                 add_value(textArray, '~s~You may kill the ~y~Imposter~s~ if you wish') 
             end
             if IsImposter() then
@@ -1208,7 +1206,7 @@ function DrawRules(onlyTeamRules)
             add_value(textArray, '~o~The longer you take to extract as the driver the more points you will receive')
             add_value(textArray, '~o~The extraction will not be visible to you until you beat your highscore on the leaderboard')
             add_value(textArray, '~o~You can carjack players using ~p~G~o~ by default')
-            add_value(textArray, '~o~Weapons are upgraded when the ~r~Driver~o~ kills any ~b~Police')
+            add_value(textArray, '~o~Weapons are upgraded when the ~r~Driver~o~ kills ~b~Police')
         end
     for i, text in pairs(textArray) do
         SetTextFont(0)
@@ -1378,6 +1376,7 @@ RegisterCommand('-scoreboard', function(source, args, rawcommand)
   
 end, false)
 
+local carJackingVehicle = 0
 local isCarjacking = false
 RegisterCommand('+carjack', function(source, args, rawcommand)
     if closestPlayerPed ~= 0 then
@@ -1385,7 +1384,7 @@ RegisterCommand('+carjack', function(source, args, rawcommand)
         local veh = GetVehiclePedIsIn(closestPlayerPed, true)
         if veh ~= 0 then
             isCarjacking = true
-        
+            carJackingVehicle = veh
             TaskEnterVehicle(GetPlayerPed(-1), veh, 30.0, -1, 2.0, 8, 0)
         end
     end
@@ -1402,6 +1401,18 @@ RegisterCommand('-carjack', function(source, args, rawcommand)
     
   
 end, false)
+
+
+Citizen.CreateThread(function()
+    while true do
+        Wait(1)
+        if isCarjacking and GetVehiclePedIsIn(PlayerPedId()) == carJackingVehicle then
+            TaskLeaveVehicle(PlayerPedId(), carJackingVehicle, 256)
+            isCarjacking = false
+            carJackingVehicle = 0
+        end
+    end
+end)
 
 
 RegisterCommand('+rules', function(source, args, rawcommand)
