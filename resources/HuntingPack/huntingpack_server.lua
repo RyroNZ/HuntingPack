@@ -606,7 +606,7 @@ Citizen.CreateThread(function()
             timerCountdown = 30
             gameStarted = false
         end
-        if total_players >= 2 and not gameStarted then
+        if total_players >= 3 and not gameStarted then
             if timerCountdown > 10 then
                 timerCountdown = timerCountdown - 5
             else
@@ -627,5 +627,10 @@ Citizen.CreateThread(function()
         end
     end
 
+end)
+
+RegisterNetEvent("OnNotifySirenState")
+AddEventHandler("OnNotifySirenState", function(vehId, toggle)
+    TriggerClientEvent('OnNotifySirenState', -1, vehId, toggle)
 end)
 

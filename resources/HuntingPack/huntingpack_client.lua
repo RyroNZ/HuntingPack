@@ -83,8 +83,8 @@ local extractionBlip = nil
 local hasExtracted = false
 local isExtracting = false
 local extractionTimeRemaining = 20
-local possiblePoliceWeapons = {  { model = 'Nightstick', ammo = 1, equip = true, weaponLevel = 0}, { model = 'pistol_mk2', ammo = 18, equip = true, weaponLevel = 2}, {model = 'pumpshotgun', ammo = 24, equip = false, weaponLevel = 3}, {model = 'SpecialCarbine', ammo = 30, equip = false, weaponLevel = 4} }
-local possibleDriverWeapons = { {model = 'knife', equip = false, ammo = 1, weaponLevel = 0},  { model = 'SNSPistol', ammo = 5, equip = true, weaponLevel = 0}, {model = 'Pistol50', ammo = 18, equip = true, weaponLevel = 1}, {model = 'microsmg', ammo = 48, equip = false, weaponLevel = 2} , {model = 'CompactRifle', ammo = 60, equip = false, weaponLevel = 3}, {model = 'sniperrifle', ammo = 15, equip = false, weaponLevel = 4} }
+local possiblePoliceWeapons = {  { model = 'Nightstick', ammo = 1, equip = true, weaponLevel = 0}, { model = 'pistol', ammo = 18, equip = true, weaponLevel = 2}, {model = 'pumpshotgun', ammo = 6, equip = false, weaponLevel = 3}, {model = 'SpecialCarbine', ammo = 30, equip = false, weaponLevel = 6} }
+local possibleDriverWeapons = { {model = 'knife', equip = false, ammo = 1, weaponLevel = 0},  { model = 'SNSPistol', ammo = 12, equip = true, weaponLevel = 0}, {model = 'microsmg', ammo = 24, equip = false, weaponLevel = 2} , {model = 'CompactRifle', ammo = 20, equip = false, weaponLevel = 3}, {model = 'sniperrifle', ammo = 5, equip = false, weaponLevel = 4} }
 local weaponHash = nil
 local currentVehicleId = 0
 local triggeredLowTimeSound = false
@@ -117,6 +117,18 @@ end
 function IsInVehicle()
     return currentVehicleId ~= 0
 end
+
+local sirenState = {}
+function UpdateSirenState()
+    for veh, state in pairs(sirenState) do
+        local vehId = NetworkGetEntityFromNetworkId(veh)
+        if DoesEntityExist(vehId) then
+            SetVehicleHasMutedSirens(vehId, state)
+        end
+    end
+end
+
+
 
 function drawProgressBar(x, y, width, height, colour, percent)
     local w = width * (percent/100)
@@ -212,7 +224,7 @@ Citizen.CreateThread(function()
         SetPlayerHealthRechargeMultiplier(PlayerId(), 0.0)
         local currentHealth = GetEntityHealth(GetPlayerPed(-1))
         if currentHealth < previousHealth then
-            timeUntilHealthRegen = 10
+            timeUntilHealthRegen = 20
         else
             timeUntilHealthRegen = timeUntilHealthRegen - 0.1
         end
@@ -349,19 +361,6 @@ Citizen.CreateThread(function()
         Citizen.Wait(100)
     end
 
-end)
-
-Citizen.CreateThread(function()
-    while true do
-        Citizen.Wait(16)
-        
-        if IsDriver() then
-            SetPedMoveRateOverride(PlayerPedId(), 0.75)
-        else
-            SetPedMoveRateOverride(PlayerPedId(), 1.0)
-        end
-        
-    end
 end)
 
 Citizen.CreateThread(function()
@@ -585,11 +584,81 @@ AddEventHandler('onClientGameTypeStart', function()
     exports.spawnmanager:setAutoSpawnCallback(function()
         local inModels = {'g_m_m_chicold_01'}
         if ourTeamType  == 'driver' then
-            inModels = { 'g_m_m_chicold_01', 's_m_m_movspace_01', 's_m_y_robber_01', 's_m_y_prisoner_01', 's_m_y_prismuscl_01', 's_m_y_factory_01', 'a_f_y_hippie_01', 's_m_y_dealer_01', 'u_m_y_mani' }
+            inModels = { 
+                'g_m_m_chicold_01', 
+                's_m_m_movspace_01', 
+                's_m_y_robber_01', 
+                's_m_y_prisoner_01', 
+                's_m_y_prismuscl_01', 
+                's_m_y_factory_01', 
+                'a_f_y_hippie_01', 
+                's_m_y_dealer_01', 
+                'u_m_y_mani', 
+                'g_m_importexport_01',
+                'g_m_m_armboss_01',
+                'g_m_m_armgoon_01',
+                'g_m_m_armlieut_01',
+                'g_m_m_chemwork_01',
+                'g_m_m_chiboss_01',
+                'g_m_m_chigoon_01',
+                'g_m_m_chigoon_02',
+                'g_m_m_korboss_01',
+                'g_m_m_mexboss_01',
+                'g_m_m_mexboss_02',
+                'g_m_y_armgoon_02',
+                'g_m_y_azteca_01',
+                'g_m_y_ballaeast_01',
+                'g_m_y_ballaorig_01',
+                'g_m_y_ballasout_01',
+                'g_m_y_famca_01',
+                'g_m_y_famdnf_01',
+                'g_m_y_famfor_01',
+                'g_m_y_korean_01',
+                'g_m_y_korean_02',
+                'g_m_y_korlieut_01',
+                'g_m_y_lost_01',
+                'g_m_y_lost_02',
+                'g_m_y_lost_03',
+                'g_m_y_mexgang_01',
+                'g_m_y_mexgoon_01',
+                'g_m_y_mexgoon_02',
+                'g_m_y_mexgoon_03',
+                'g_m_y_salvagoon_01',
+                'g_m_m_casrn_01',
+                'g_f_importexport_01',
+                'g_f_importexport_01',
+                'g_f_y_ballas_01',
+                'g_f_y_families_01',
+                'g_f_y_lost_01',
+                'g_f_y_vagos_01',
+                's_f_y_factory_01',
+                's_f_y_sweatshop_01',
+                's_m_m_bouncer_01',
+                's_m_m_linecook',
+                's_m_y_autopsy_01',
+                's_m_y_marine_02',
+                's_m_y_marine_01',
+                's_m_y_xmech_02'
+                
+        }
         elseif ourTeamType  == 'defender' then
-            inModels = {'s_m_m_armoured_01', 's_m_m_armoured_02', 's_m_m_chemsec_01', 's_m_m_highsec_01', 's_m_y_uscg_01' }
+            inModels = {
+                's_m_m_armoured_01', 
+                's_m_m_armoured_02', 
+                's_m_m_chemsec_01', 
+                's_m_m_highsec_01', 
+                's_m_y_uscg_01' 
+            }
         else
-            inModels = { 's_m_y_cop_01', 's_m_y_hwaycop_01', 's_m_y_sheriff_01', 's_m_y_ranger_01', 's_m_m_fibsec_01' }
+            inModels = { 
+                's_m_y_cop_01', 
+                's_m_y_hwaycop_01', 
+                's_m_y_sheriff_01', 
+                's_m_y_ranger_01', 
+                's_m_m_fibsec_01',
+                's_f_y_cop_01',
+                's_f_y_ranger_01' 
+            }
         end
         selectedModel = inModels[math.random(1, #inModels)]
         print('spawning as model ' .. selectedModel)
@@ -708,6 +777,7 @@ AddEventHandler('onHuntingPackStart',
         DeleteVehicle(car)
     end
     -- account for the argument not being passed
+    sirenState = {}
     startTime = GetGameTimer()
     totalLife = 0
     timeBelowSpeed = 0
@@ -1462,9 +1532,67 @@ RegisterCommand('debug', function(source, args, rawcommand)
   
 end, false)
 
+
+RegisterCommand('togglesirenaudio', function(source, args, rawcommand)
+    print('toggling siren')
+    currentVehicleId = GetVehiclePedIsIn(PlayerPedId(), false)
+    if currentVehicleId ~= 0 then
+        local id = NetworkGetNetworkIdFromEntity(currentVehicleId)
+        if sirenState[id] == nil or sirenState[id] == true then
+            sirenState[id] = false
+        else
+            sirenState[id] = true
+        end
+   
+        TriggerServerEvent('OnNotifySirenState', id, sirenState[id])
+    end
+end, false)
+
+RegisterNetEvent("OnNotifySirenState")
+AddEventHandler("OnNotifySirenState", function(vehId, toggle)
+	sirenState[vehId] = toggle
+end)
+
+
+Citizen.CreateThread(function()
+    while true do
+        Citizen.Wait(100)
+        UpdateSirenState()
+    end
+end)
+
+local hurt = false
+Citizen.CreateThread(function()
+    while true do
+        Wait(100)
+        if GetEntityHealth(GetPlayerPed(-1)) <= 159 then
+            setHurt()
+        elseif hurt and GetEntityHealth(GetPlayerPed(-1)) > 160 or true then
+            setNotHurt()
+        end
+    end
+end)
+
+function setHurt()
+    hurt = true
+    RequestAnimSet("move_m@injured")
+    SetPedMovementClipset(GetPlayerPed(-1), "move_m@injured", true)
+end
+
+function setNotHurt()
+    hurt = false
+    if not IsDriver() then
+        RestorePlayerStamina(PlayerId(), 1.0)
+    end
+    ResetPedMovementClipset(GetPlayerPed(-1))
+    ResetPedWeaponMovementClipset(GetPlayerPed(-1))
+    ResetPedStrafeClipset(GetPlayerPed(-1))
+end
+
 RegisterKeyMapping('respawngroundbtn', 'Respawn Land Vehicle', "keyboard", "F1")
 RegisterKeyMapping('respawnairbtn', 'Respawn Air Vehicle', "keyboard", "F2")
 RegisterKeyMapping('debug', 'Debug', "keyboard", "F3")
 RegisterKeyMapping('+scoreboard', 'Scoreboard', 'keyboard', 'CAPITAL')
 RegisterKeyMapping('+carjack', 'Car Jack', 'keyboard', 'G')
 RegisterKeyMapping('+rules', 'View Rules', 'keyboard', 'F5')
+RegisterKeyMapping('togglesirenaudio', 'Toggle Siren', "keyboard", "LMENU")
