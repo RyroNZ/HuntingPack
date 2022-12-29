@@ -89,6 +89,8 @@ local weaponHash = nil
 local currentVehicleId = 0
 local triggeredLowTimeSound = false
 local weaponUpgradeLevel = 0
+local previousHealth = 0
+local timeUntilHealthRegen = 0.0
 
 local renderText = ''
 local renderTextTime = 0.0
@@ -203,21 +205,31 @@ Citizen.CreateThread(function()
         end
 
         local playerName = GetPlayerName(PlayerId())
-
+        SetPlayerHealthRechargeMultiplier(PlayerId(), 0.0)
         local currentHealth = GetEntityHealth(GetPlayerPed(-1))
-        local currentArmor = GetPedArmour(GetPlayerPed(-1))
-        local maxHealth = 200
-        local maxArmour = 50
-        if IsDriver() then 
-            maxHealth = 400
-            maxArmour = 100
+        if currentHealth < previousHealth then
+            timeUntilHealthRegen = 10
+        else
+            timeUntilHealthRegen = timeUntilHealthRegen - 0.1
         end
-        if currentHealth < maxHealth then
-            SetPedMaxHealth(GetPlayerPed(-1), maxHealth)
-            SetEntityHealth(GetPlayerPed(-1), currentHealth + 0.3)
-        end
-        if currentArmor < 100 then
-            SetPedArmour(GetPlayerPed(-1), currentArmor + 0.3)
+
+        previousHealth = GetEntityHealth(GetPlayerPed(-1))
+
+        if timeUntilHealthRegen <= 0 then
+            local currentArmor = GetPedArmour(GetPlayerPed(-1))
+            local maxHealth = 200
+            local maxArmour = 50
+            if IsDriver() then 
+                maxHealth = 400
+                maxArmour = 100
+            end
+            if currentHealth < maxHealth then
+                SetPedMaxHealth(GetPlayerPed(-1), maxHealth)
+                SetEntityHealth(GetPlayerPed(-1), currentHealth + 1)
+            end
+            if currentArmor < 100 then
+                SetPedArmour(GetPlayerPed(-1), currentArmor + 1)
+            end
         end
 
         if currentVehicleId == 0 then
@@ -237,7 +249,7 @@ Citizen.CreateThread(function()
             if not isExtracting then
                 timeRemainingOnFoot = timeRemainingOnFoot - 0.1
             end
-            if timeRemainingOnFoot <= 9 and not triggeredLowTimeSound then
+            if timeRemainingOnFoot <= 9 and not triggeredLowTimeSound and IsDriver() then
                 triggeredLowTimeSound = true
                 PlaySoundFrontend(999, '10s', 'MP_MISSION_COUNTDOWN_SOUNDSET')               
             end
@@ -1340,7 +1352,6 @@ AddEventHandler('OnNotifyDriverBlipArea', function(driverName, enabled, posX, po
         SetBlipColour(driverBlip[driverName], 1)
         SetBlipAlpha(driverBlip[driverName], 128)
     else
-        PlaySoundFrontend(999, 'Beep_Green', 'DLC_HEIST_HACKING_SNAKE_SOUNDS')    
         RemoveBlip(driverBlip[driverName])
     end
 end)
