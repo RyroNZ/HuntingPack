@@ -177,10 +177,8 @@ local function UpdateRanks()
             for _, player in pairs(ranks) do
                 TriggerClientEvent('OnUpdateRanks', -1, player.name,
                                 player.points, player.players, _)
-                Citizen.Wait(100)
             end
         end
-        Citizen.Wait(1000)
 end
 
 
