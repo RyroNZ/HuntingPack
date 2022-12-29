@@ -257,11 +257,7 @@ Citizen.CreateThread(function()
                 SetEntityHealth(GetPlayerPed(-1), 0)
             end
            
-            if IsPedRagdoll(GetPlayerPed(-1)) then
-                SetEntityInvincible(GetPlayerPed(-1), true)
-            else
-                SetEntityInvincible(GetPlayerPed(-1), false)
-            end
+            SetEntityInvincible(GetPlayerPed(-1), false)
             
         else
             triggeredLowTimeSound = false
