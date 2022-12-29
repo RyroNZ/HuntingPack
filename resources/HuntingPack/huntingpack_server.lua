@@ -39,10 +39,9 @@ end
 
 function GetSpawnedPlayers() return spawnedPlayers end
 
-RegisterNetEvent("OnPlayerSpawned")
-AddEventHandler('OnPlayerSpawned', function()
-    print('Added spawned playerIdx to table: ' .. source)
-    spawnedPlayers[#spawnedPlayers + 1] = source
+RegisterNetEvent('baseevents:leftVehicle')
+AddEventHandler('baseevents:leftVehicle', function(currentvehicle, seat,name,netid)
+    TriggerClientEvent('baseevents:leftVehicle', source, currentvehicle, seat, name, netid)
 end)
 
 RegisterNetEvent("baseevents:onPlayerKilled")
@@ -169,6 +168,29 @@ local spawns = loadTable('spawns.json')
 total_spawns = count_array(spawns)
 selectedSpawn = spawns[math.random(1, total_spawns)]
 
+
+local function UpdateRanks()
+    TriggerClientEvent('OnClearRanks', -1)
+      
+        if selectedSpawn ~= nil then
+            ranks = loadTable('ranks' .. selectedSpawn.name .. '.json')
+            for _, player in pairs(ranks) do
+                TriggerClientEvent('OnUpdateRanks', -1, player.name,
+                                player.points, player.players, _)
+                Citizen.Wait(100)
+            end
+        end
+        Citizen.Wait(1000)
+end
+
+
+RegisterNetEvent("OnPlayerSpawned")
+AddEventHandler('OnPlayerSpawned', function()
+    print('Added spawned playerIdx to table: ' .. source)
+    spawnedPlayers[#spawnedPlayers + 1] = source
+    UpdateRanks()
+end)
+
 RegisterNetEvent("OnRequestedStart")
 AddEventHandler('OnRequestedStart', function(startPoint)
     print("Received Start Event")
@@ -183,6 +205,7 @@ AddEventHandler('OnRequestedStart', function(startPoint)
     respawnPoint = vector3(0, 0, 0)
     total_spawns = count_array(spawns)
     selectedSpawn = spawns[math.random(1, total_spawns)]
+    UpdateRanks()
     print('Spawning at ' .. selectedSpawn.name)
     ranks = loadTable('ranks' .. selectedSpawn.name .. '.json')
     -- randomly select the driver
@@ -229,7 +252,7 @@ AddEventHandler('OnRequestedStart', function(startPoint)
                 ('%s was selected as the driver!'):format(name))
             TriggerClientEvent('onHuntingPackStart', playerId, 'driver',
                                selectedSpawn.driverSpawnVec, selectedSpawn.driverSpawnRot, drivers, selectedSpawn, true)
-            maxTimeBelowSpeed = math.random(0.0, 60.0)
+            maxTimeBelowSpeed = math.random(5.0, 60.0)
             TriggerClientEvent('OnUpdateMinSpeed', playerId, 45,
                                maxTimeBelowSpeed)
             print('Spawning ' .. name .. ' as the driver')
@@ -350,6 +373,8 @@ AddEventHandler('OnRequestJoinInProgress', function(playerId)
             outDriverIdx = Idx
             end
         end
+
+        UpdateRanks()
 
         if outDriverIdx == -1 then
             local defenderSpawn = vector3(selectedSpawn.defenderSpawnVec.x, selectedSpawn.defenderSpawnVec.y, selectedSpawn.defenderSpawnVec.z)
@@ -506,6 +531,9 @@ AddEventHandler('OnNotifyHighScore', function(Name, LifeTime)
         saveTable(ranks, 'ranks' .. selectedSpawn.name .. '.json')
     end
 
+    
+    UpdateRanks()
+
 end)
 
 RegisterNetEvent('OnNotifyDriverBlipArea')
@@ -603,19 +631,3 @@ Citizen.CreateThread(function()
 
 end)
 
-Citizen.CreateThread(function()
-    while true do
-        Citizen.Wait(1000)
-        if selectedSpawn ~= nil then
-            ranks =
-                loadTable('ranks' .. selectedSpawn.name .. '.json')
-            for _, playerId in ipairs(GetSpawnedPlayers()) do
-                TriggerClientEvent('OnClearRanks', playerId)
-                for _, player in pairs(ranks) do
-                    TriggerClientEvent('OnUpdateRanks', playerId, player.name,
-                                    player.points, player.players, _)
-                end
-            end
-        end
-    end
-end)

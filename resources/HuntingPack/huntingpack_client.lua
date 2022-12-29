@@ -18,7 +18,7 @@ local function add_value(tab, val)
 end
 
 local warmupTime = 15
-local distanceForExtraction = 10.0
+local distanceForExtraction = 20.0
 local ourTeamType = ''
 local ourDriverVehicle = 0
 local startTime = 0
@@ -84,7 +84,7 @@ local hasExtracted = false
 local isExtracting = false
 local extractionTimeRemaining = 20
 local possiblePoliceWeapons = {  { model = 'Nightstick', ammo = 1, equip = true, weaponLevel = 0}, { model = 'pistol_mk2', ammo = 18, equip = true, weaponLevel = 2}, {model = 'pumpshotgun', ammo = 24, equip = false, weaponLevel = 3}, {model = 'SpecialCarbine', ammo = 30, equip = false, weaponLevel = 4} }
-local possibleDriverWeapons = { {model = 'knife', equip = false, ammo = 1, weaponLevel = 0}, {model = 'Pistol50', ammo = 18, equip = true, weaponLevel = 1}, {model = 'microsmg', ammo = 48, equip = false, weaponLevel = 2} , {model = 'CompactRifle', ammo = 60, equip = false, weaponLevel = 3}, {model = 'sniperrifle', ammo = 15, equip = false, weaponLevel = 4} }
+local possibleDriverWeapons = { {model = 'knife', equip = false, ammo = 1, weaponLevel = 0},  { model = 'SNSPistol', ammo = 5, equip = true, weaponLevel = 0}, {model = 'Pistol50', ammo = 18, equip = true, weaponLevel = 1}, {model = 'microsmg', ammo = 48, equip = false, weaponLevel = 2} , {model = 'CompactRifle', ammo = 60, equip = false, weaponLevel = 3}, {model = 'sniperrifle', ammo = 15, equip = false, weaponLevel = 4} }
 local weaponHash = nil
 local currentVehicleId = 0
 local triggeredLowTimeSound = false
@@ -94,7 +94,6 @@ local timeUntilHealthRegen = 0.0
 
 local renderText = ''
 local renderTextTime = 0.0
-local closestPlayerPed = 0
 
 local function count_array(tab)
     count = 0
@@ -149,6 +148,12 @@ Citizen.CreateThread(function()
 
 end)
 
+RegisterNetEvent('baseevents:leftVehicle')
+AddEventHandler('baseevents:leftVehicle', function(currentvehicle, seat,name,netid)
+    RemoveAllPedWeapons(GetPlayerPed(-1))
+end)
+
+
 Citizen.CreateThread(function()
     while true do
         -- These natives has to be called every frame.
@@ -184,7 +189,6 @@ Citizen.CreateThread(function()
 
         local vehicleClass = GetVehicleClass(currentVehicleId)
         local giveWeapon = currentVehicleId == 0 or not isDriver
-
         if giveWeapon then
             local weapons = possiblePoliceWeapons
             if IsDriver() then
@@ -348,6 +352,19 @@ Citizen.CreateThread(function()
 end)
 
 Citizen.CreateThread(function()
+    while true do
+        Citizen.Wait(16)
+        
+        if IsDriver() then
+            SetPedMoveRateOverride(PlayerPedId(), 0.25)
+        else
+            SetPedMoveRateOverride(PlayerPedId(), 0.5)
+        end
+        
+    end
+end)
+
+Citizen.CreateThread(function()
 
     timestart = GetGameTimer()
     tick = GetGameTimer()
@@ -355,12 +372,12 @@ Citizen.CreateThread(function()
         delta_time = (GetGameTimer() - tick) / 1000
         tick = GetGameTimer()
         Citizen.Wait(100) -- check all 15 seconds
-        if (GetGameTimer() - startTime) / 1000 > warmupTime and IsDriver() then
-            totalLife =  totalLife + delta_time
-        end
+        totalLife =  totalLife + delta_time
         if selectedEndPoint ~= nil then
             distanceToFinalLocation = #(GetEntityCoords(PlayerPedId()) - selectedEndPoint.destination)
         end
+
+      
         SetEnableVehicleSlipstreaming(true)
         local speedinKMH = GetEntitySpeed(driverPed) * 3.6
         local wantedLevel = 0
@@ -371,7 +388,8 @@ Citizen.CreateThread(function()
             SetPlayerWantedLevel(PlayerId(), wantedLevel, false)
             SetPlayerWantedLevelNow(PlayerId(), false)
         end
-        if distanceToFinalLocation < distanceForExtraction and IsDriver() and gameStarted and currentVehicleId == 0 and extractionBlip  then
+        local finalDistanceCheck = distanceForExtraction - 10
+        if distanceToFinalLocation < finalDistanceCheck and IsDriver() and gameStarted and currentVehicleId == 0 and extractionBlip and not IsPedSwimming(PlayerPedId())  then
             isExtracting = true
             extractionTimeRemaining = extractionTimeRemaining - 0.1
             if extractionTimeRemaining <= 0  and not hasExtracted then
@@ -384,7 +402,9 @@ Citizen.CreateThread(function()
             end
         else
             isExtracting = false
-            extractionTimeRemaining = 20
+            if extractionTimeRemaining <= 20 then
+                extractionTimeRemaining = extractionTimeRemaining + 0.1
+            end
         end
 
         if (GetGameTimer() - startTime) / 1000 >
@@ -682,7 +702,6 @@ AddEventHandler('OnUpdateTotalPlayers',
 AddEventHandler('onHuntingPackStart',
                 function(teamtype, spawnPos, spawnRot, inDrivers, inSelectedSpawn, isGameStarted)
     print("Client_HuntingPackStart")
-    DisablePlayerVehicleRewards(GetPlayerPed(-1))
     car = GetVehiclePedIsUsing(GetPlayerPed(-1), false)
     if car ~= 0 and not gameStarted then
         SetEntityAsMissionEntity(car, false, false) 
@@ -885,8 +904,7 @@ Citizen.CreateThread(function()
    
     while true do
         Wait(100)
-        local closestPlayerDist = 10
-        closestPlayerPed = 0
+
         local players = GetPlayers()
         local localScoreToBeat = 0
         if (scoreToBeat[GetPlayerName(PlayerId())] ~= nil) then
@@ -912,13 +930,6 @@ Citizen.CreateThread(function()
             if player ~= currentPlayer and NetworkIsPlayerActive(player) then
                 local playerPed = GetPlayerPed(player)
                 local playerName = GetPlayerName(player)
-                local distanceToPlayer = #(GetEntityCoords(PlayerPedId()) - GetEntityCoords(playerPed))
-                if distanceToPlayer < closestPlayerDist then
-                    closestPlayerDist = distanceToPlayer
-                    closestPlayerPed = playerPed
-                
-                end
-
             
                 local currentVehicleId = GetVehiclePedIsIn(playerPed, false)
                 local shouldCreateBlip = true
@@ -974,10 +985,10 @@ Citizen.CreateThread(function()
                         SetMpGamerTagColour(gamerTag, 0, 18)
                     end
 
-                    if has_value(drivers, playerName) and not DoesBlipHaveGpsRoute(new_blip) then
-                        SetBlipRoute(new_blip, true)
-                        SetBlipRouteColour(new_blip, 6)
-                    end
+                    --if has_value(drivers, playerName) and not DoesBlipHaveGpsRoute(new_blip) then
+                    --    SetBlipRoute(new_blip, true)
+                    --    SetBlipRouteColour(new_blip, 6)
+                    --end
 
                     -- Set the blip to shrink when not on the minimap
                     -- Citizen.InvokeNative(0x2B6D467DAB714E8D, new_blip, true)
@@ -1010,7 +1021,7 @@ end)
 Citizen.CreateThread(function()
     local previousLocation = vector3(0, 0, 0)
     while true do
-        Wait(100)
+        Wait(1000)
         if drivers[1] ~= nil then
             if  drivers[1] == GetPlayerName(PlayerId()) then
                 TriggerServerEvent('OnUpdateLifeTimers', totalLife)
@@ -1388,6 +1399,21 @@ end, false)
 local carJackingVehicle = 0
 local isCarjacking = false
 RegisterCommand('+carjack', function(source, args, rawcommand)
+    local closestPlayerDist = 10
+    local closestPlayerPed = 0
+    local currentPlayer = PlayerId()
+    for player = 0, 64 do
+        if player ~= currentPlayer and NetworkIsPlayerActive(player) then
+            local playerPed = GetPlayerPed(player)
+            local playerName = GetPlayerName(player)
+            local distanceToPlayer = #(GetEntityCoords(PlayerPedId()) - GetEntityCoords(playerPed))
+            if distanceToPlayer < closestPlayerDist then
+                closestPlayerDist = distanceToPlayer
+                closestPlayerPed = playerPed
+            
+            end
+        end
+    end
     if closestPlayerPed ~= 0 then
         local pos = GetEntityCoords(GetPlayerPed(-1))
         local veh = GetVehiclePedIsIn(closestPlayerPed, true)
@@ -1403,18 +1429,15 @@ end, false)
 
 RegisterCommand('-carjack', function(source, args, rawcommand)
 
-    if isCarjacking then
-        ClearPedTasks(GetPlayerPed(-1))
-        isCarjacking = false
-    end
-    
+    isCarjacking = false
+    ClearPedTasks(GetPlayerPed(-1))
   
 end, false)
 
 
 Citizen.CreateThread(function()
     while true do
-        Wait(1)
+        Wait(100)
         if isCarjacking and GetVehiclePedIsIn(PlayerPedId()) == carJackingVehicle then
             TaskLeaveVehicle(PlayerPedId(), carJackingVehicle, 256)
             isCarjacking = false
