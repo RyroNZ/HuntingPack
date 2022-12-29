@@ -14,6 +14,7 @@ local lifeStart = GetGameTimer()
 local startTime = GetGameTimer()
 local totalLife = 0
 local defenderPlayerId = -1
+local weaponUpgradeLevel = 0
 
 local function has_value(tab, val)
     for index, value in ipairs(tab) do if value == val then return true end end
@@ -28,6 +29,11 @@ local function count_array(tab)
     return count
 end
 
+local function send_global_message(text)
+    print('Sending Global Message ' .. text)
+    TriggerClientEvent('OnReceivedServerNotification', -1, text)
+end
+
 
 
 function GetSpawnedPlayers() return spawnedPlayers end
@@ -36,6 +42,18 @@ RegisterNetEvent("OnPlayerSpawned")
 AddEventHandler('OnPlayerSpawned', function()
     print('Added spawned playerIdx to table: ' .. source)
     spawnedPlayers[#spawnedPlayers + 1] = source
+end)
+
+RegisterNetEvent("baseevents:onPlayerKilled")
+AddEventHandler('baseevents:onPlayerKilled', function(killedBy, data)
+    print(GetPlayerName(killedBy) .. ' has killed ' .. GetPlayerName(source) )
+    if has_value(drivers, GetPlayerName(killedBy)) and has_value(attackers, GetPlayerName(source)) then
+      -- weapon upgrade
+      weaponUpgradeLevel = weaponUpgradeLevel + 1
+      send_global_message(('Weapons have been upgraded. Level %i'):format(weaponUpgradeLevel))
+      TriggerClientEvent('OnWeaponUpgrade', -1, weaponUpgradeLevel)
+      
+    end
 end)
 
 function shuffle(tbl)
@@ -145,11 +163,6 @@ local ranks = loadTable('ranks.json')
 local spawns = loadTable('spawns.json')
 total_spawns = count_array(spawns)
 selectedSpawn = spawns[math.random(1, total_spawns)]
-
-local function send_global_message(text)
-    print('Sending Global Message ' .. text)
-    TriggerClientEvent('OnReceivedServerNotification', -1, text)
-end
 
 RegisterNetEvent("OnRequestedStart")
 AddEventHandler('OnRequestedStart', function(startPoint)

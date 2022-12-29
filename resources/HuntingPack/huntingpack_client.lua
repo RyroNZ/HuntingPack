@@ -84,14 +84,16 @@ local extractionBlip = nil
 local hasExtracted = false
 local isExtracting = false
 local extractionTimeRemaining = 20
-local possiblePoliceWeapons = { {model = 'pumpshotgun', ammo = 8, equip = false}, { model = 'pistol_mk2', ammo = 45, equip = true} }
-local possibleDriverWeapons = { {model = 'microsmg', ammo = 48, equip = false} , {model = 'Pistol50', ammo = 27, equip = true} , {model = 'sniperrifle', ammo = 5, equip = false} }
+local possiblePoliceWeapons = {  { model = 'Nightstick', ammo = 1, equip = true, weaponLevel = 1}, { model = 'pistol_mk2', ammo = 18, equip = true, weaponLevel = 2}, {model = 'pumpshotgun', ammo = 8, equip = false, weaponLevel = 3}, {model = 'SpecialCarbine', ammo = 30, equip = false, weaponLevel = 4} }
+local possibleDriverWeapons = { {model = 'knife', equip = false, ammo = 1, weaponLevel = 0}, {model = 'Pistol50', ammo = 27, equip = true, weaponLevel = 1}, {model = 'microsmg', ammo = 48, equip = false, weaponLevel = 2} , {model = 'CompactRifle', ammo = 60, equip = false, weaponLevel = 3}, {model = 'sniperrifle', ammo = 15, equip = false, weaponLevel = 4} }
 local weaponHash = nil
 local currentVehicleId = 0
 local triggeredLowTimeSound = false
+local weaponUpgradeLevel = 0
 
 local renderText = ''
 local renderTextTime = 0.0
+local closestPlayerPed = 0
 
 local function count_array(tab)
     count = 0
@@ -180,7 +182,7 @@ Citizen.CreateThread(function()
         end
 
         local vehicleClass = GetVehicleClass(currentVehicleId)
-        local giveWeapon = currentVehicleId == 0 or not isDriver or vehicleClass == 8
+        local giveWeapon = currentVehicleId == 0 or not isDriver
 
         if giveWeapon then
             local weapons = possiblePoliceWeapons
@@ -189,11 +191,15 @@ Citizen.CreateThread(function()
             end
             for _, weapon in pairs(weapons) do
                 weaponHash = GetHashKey("WEAPON_".. weapon.model)
-                if not HasPedGotWeapon(playerPed, weaponHash, false) then
-                    GiveWeaponToPed(playerPed, weaponHash, weapon.ammo, false, weapon.equip)
+                if weaponUpgradeLevel >= weapon.weaponLevel then
+                    if not HasPedGotWeapon(playerPed, weaponHash, false) then
+                        GiveWeaponToPed(playerPed, weaponHash, weapon.ammo, false, weaponUpgradeLevel == weapon.weaponLevel)
+                    end
                 end
             end
+            SetPlayerCanDoDriveBy(playerPed, true)
         else
+            SetPlayerCanDoDriveBy(playerPed, false)
             RemoveAllPedWeapons(playerPed)
         end
 
@@ -224,7 +230,11 @@ Citizen.CreateThread(function()
                 SetEntityHealth(GetPlayerPed(-1), 0)
             end
            
-            SetEntityInvincible(GetPlayerPed(-1), false)
+            if IsPedRagdoll(GetPlayerPed(-1)) then
+                SetEntityInvincible(GetPlayerPed(-1), true)
+            else
+                SetEntityInvincible(GetPlayerPed(-1), false)
+            end
             
         else
             triggeredLowTimeSound = false
@@ -392,9 +402,9 @@ Citizen.CreateThread(function()
                     SetVehicleEngineOn(GetVehiclePedIsIn(GetPlayerPed(-1), false), false, true, false)
                 end
             end
-            if (isVehicleDead == true) and IsDriver() then
+            if isVehicleDead == true and IsDriver() then
                 -- blow up
-               
+                SetEntityInvincible(GetPlayerPed(-1), false)
                 NetworkExplodeVehicle(GetVehiclePedIsIn(GetPlayerPed(-1), false), true, true, true)
                 timeBelowSpeed = 0
                 print('Exploding vehicle ' .. timeBelowSpeed .. ' IsEntityDead? ' .. tostring(isVehicleDead) .. ' MaxTimeBlowSpeed? ' .. maxTimeBelowSpeed)
@@ -541,11 +551,7 @@ Citizen.CreateThread(function()
     end
 end)
 
-RegisterNetEvent("baseevents:onPlayerKilled")
-AddEventHandler('baseevents:onPlayerKilled', function(killer, reason)
-    TriggerEvent('OnReceivedChatMessage', 'Killer: ' .. killer .. ' Reason: ' .. reason)
-   
-end)
+
 
 AddEventHandler('onClientGameTypeStart', function()
     exports.spawnmanager:setAutoSpawnCallback(function()
@@ -675,7 +681,7 @@ AddEventHandler('onHuntingPackStart',
     end
     -- account for the argument not being passed
     startTime = GetGameTimer()
-   
+    weaponUpgradeLevel = 0
     totalLife = 0
     timeBelowSpeed = 0
     extractionTimeRemaining = 20
@@ -867,9 +873,12 @@ Citizen.CreateThread(function()
     local blips = {}
     local gamerTags = {}
     local currentPlayer = PlayerId()
+  
    
     while true do
         Wait(100)
+        local closestPlayerDist = 10
+        closestPlayerPed = 0
         local players = GetPlayers()
         local localScoreToBeat = 0
         if (scoreToBeat[GetPlayerName(PlayerId())] ~= nil) then
@@ -895,6 +904,12 @@ Citizen.CreateThread(function()
             if player ~= currentPlayer and NetworkIsPlayerActive(player) then
                 local playerPed = GetPlayerPed(player)
                 local playerName = GetPlayerName(player)
+                local distanceToPlayer = #(GetEntityCoords(PlayerPedId()) - GetEntityCoords(playerPed))
+                if distanceToPlayer < closestPlayerDist then
+                    closestPlayerDist = distanceToPlayer
+                    closestPlayerPed = playerPed
+                
+                end
 
             
                 local currentVehicleId = GetVehiclePedIsIn(playerPed, false)
@@ -1122,7 +1137,6 @@ end)
 
 function DrawLatestServerText(dtime)
     renderTextTime = renderTextTime + dtime
-    print(renderTextTime)
     if renderText ~= '' and renderTextTime < 10 then
         SetTextFont(0)
         SetTextProportional(0)
@@ -1136,7 +1150,7 @@ function DrawLatestServerText(dtime)
         SetTextCentre(1)
         AddTextComponentString(
             ("%s"):format(renderText))
-        DrawText(0.9, 0.01)
+        DrawText(0.5, 0.01)
     end
 end
 
@@ -1190,9 +1204,11 @@ function DrawRules(onlyTeamRules)
             add_value(textArray, '')
             add_value(textArray, '~o~[Tips]')
             add_value(textArray, '~o~You will refresh your ammo when you are in the drivers seat of a vehicle')
-            add_value(textArray, '~o~If you are far away, use F1 to respawn quickly into the action')
+            add_value(textArray, '~o~If you are far away, use ~p~F1~o~ to respawn quickly into the action')
             add_value(textArray, '~o~The longer you take to extract as the driver the more points you will receive')
             add_value(textArray, '~o~The extraction will not be visible to you until you beat your highscore on the leaderboard')
+            add_value(textArray, '~o~You can carjack players using ~p~G~o~ by default')
+            add_value(textArray, '~o~Weapons are upgraded when the ~r~Driver~o~ kills any ~b~Police')
         end
     for i, text in pairs(textArray) do
         SetTextFont(0)
@@ -1310,6 +1326,11 @@ AddEventHandler('OnNotifyDriverBlipVisible', function(driverName, isVisible)
     forceDriverBlipVisible[driverName] = isVisible
 end)
 
+RegisterNetEvent('OnWeaponUpgrade')
+AddEventHandler('OnWeaponUpgrade', function(inWeaponUpgradeLevel)
+    weaponUpgradeLevel = inWeaponUpgradeLevel
+end)
+
 RegisterNetEvent('OnNotifyDriverBlipArea')
 AddEventHandler('OnNotifyDriverBlipArea', function(driverName, enabled, posX, posY, posZ)
     if enabled then
@@ -1357,6 +1378,31 @@ RegisterCommand('-scoreboard', function(source, args, rawcommand)
   
 end, false)
 
+local isCarjacking = false
+RegisterCommand('+carjack', function(source, args, rawcommand)
+    if closestPlayerPed ~= 0 then
+        local pos = GetEntityCoords(GetPlayerPed(-1))
+        local veh = GetVehiclePedIsIn(closestPlayerPed, true)
+        if veh ~= 0 then
+            isCarjacking = true
+        
+            TaskEnterVehicle(GetPlayerPed(-1), veh, 30.0, -1, 2.0, 8, 0)
+        end
+    end
+  
+end, false)
+
+
+RegisterCommand('-carjack', function(source, args, rawcommand)
+
+    if isCarjacking then
+        ClearPedTasks(GetPlayerPed(-1))
+        isCarjacking = false
+    end
+    
+  
+end, false)
+
 
 RegisterCommand('+rules', function(source, args, rawcommand)
     showRules = true
@@ -1377,4 +1423,5 @@ RegisterKeyMapping('respawngroundbtn', 'Respawn Land Vehicle', "keyboard", "F1")
 RegisterKeyMapping('respawnairbtn', 'Respawn Air Vehicle', "keyboard", "F2")
 RegisterKeyMapping('debug', 'Debug', "keyboard", "F3")
 RegisterKeyMapping('+scoreboard', 'Scoreboard', 'keyboard', 'CAPITAL')
+RegisterKeyMapping('+carjack', 'Car Jack', 'keyboard', 'G')
 RegisterKeyMapping('+rules', 'View Rules', 'keyboard', 'F5')
