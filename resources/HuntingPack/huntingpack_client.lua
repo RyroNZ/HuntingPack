@@ -356,9 +356,9 @@ Citizen.CreateThread(function()
         Citizen.Wait(16)
         
         if IsDriver() then
-            SetPedMoveRateOverride(PlayerPedId(), 0.25)
+            SetPedMoveRateOverride(PlayerPedId(), 0.75)
         else
-            SetPedMoveRateOverride(PlayerPedId(), 0.5)
+            SetPedMoveRateOverride(PlayerPedId(), 1.0)
         end
         
     end
