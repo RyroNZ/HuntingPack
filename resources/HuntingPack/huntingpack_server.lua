@@ -244,8 +244,6 @@ AddEventHandler('OnRequestedStart', function(startPoint)
     end
 
     drivers = shuffle(drivers)
-    drivers = {}
-    driverIdxs = {}
    
     for i, playerId in ipairs(spawnedPlayers) do
         local name = GetPlayerName(playerId)
@@ -382,6 +380,9 @@ AddEventHandler('OnRequestJoinInProgress', function(playerId)
         end
 
         UpdateRanks()
+
+        send_global_message(
+            ('%s has respawned!'):format(GetPlayerName(playerId)))
 
         if outDriverIdx == -1 then
             local defenderSpawn = vector3(selectedSpawn.defenderSpawnVec.x, selectedSpawn.defenderSpawnVec.y, selectedSpawn.defenderSpawnVec.z)
@@ -615,7 +616,7 @@ Citizen.CreateThread(function()
             timerCountdown = 30
             gameStarted = false
         end
-        if total_players >= 3 and not gameStarted then
+        if total_players >= 2 and not gameStarted then
             if timerCountdown > 10 then
                 timerCountdown = timerCountdown - 5
             else

@@ -1323,6 +1323,7 @@ function DrawRules(onlyTeamRules)
             add_value(textArray, '~o~The extraction will not be visible to you until you beat your highscore on the leaderboard')
             add_value(textArray, '~o~You can carjack players using ~p~G~o~ by default')
             add_value(textArray, '~o~Weapons are upgraded when the ~r~Driver~o~ kills ~b~Police')
+            add_value(textArray, '~o~You can lock your vehicle with ~p~U~o~ when you\'re not in it')
         end
     for i, text in pairs(textArray) do
         SetTextFont(0)
@@ -1580,7 +1581,9 @@ end, false)
 RegisterCommand('lockdoors', function(source, args, rawcommand)
     local veh = GetVehiclePedIsIn(PlayerPedId(), true)
     local lock = GetVehicleDoorLockStatus(veh)
-    if (lock == 1 or lock == 0) and not IsPedInAnyVehicle(PlayerPedId(), true) then
+    local vehicleLabel = GetDisplayNameFromVehicleModel(GetEntityModel(veh))
+    vehicleLabel = GetLabelText(vehicleLabel)
+    if (lock == 1 or lock == 0) and not IsPedInAnyVehicle(PlayerPedId(), true) and vehicleLabel ~= 'Police Bike' then
         SetVehicleDoorShut(veh, 0, false)
         SetVehicleDoorShut(veh, 1, false)
         SetVehicleDoorShut(veh, 2, false)
