@@ -123,7 +123,7 @@ function UpdateSirenState()
     for veh, state in pairs(sirenState) do
         local vehId = NetworkGetEntityFromNetworkId(veh)
         if DoesEntityExist(vehId) then
-            SetVehicleHasMutedSirens(vehId, state)
+            SetVehicleHasMutedSirens(vehId, not state)
         end
     end
 end
@@ -305,7 +305,7 @@ Citizen.CreateThread(function()
 	            
             end
             isLocalPlayerInVehicle = true
-            timeRemainingOnFoot = math.clamp(timeRemainingOnFoot + 0.1, 0, 60)
+            timeRemainingOnFoot = math.clamp(timeRemainingOnFoot + 0.1, 0, 300)
             if IsDriver() and timeBelowSpeed < maxTimeBelowSpeed then
                 SetEntityInvincible(GetPlayerPed(-1), true)
             else
@@ -504,8 +504,24 @@ Citizen.CreateThread(function()
                         add_value(textArray, '~g~Immune To Damage')
                     end
                 end
+                add_value(textArray,  '')
+                add_value(textArray,  '')
+                add_value(textArray, ('~r~%s Drivers'):format(#drivers))
+                add_value(textArray, ('~b~%s Police'):format(#attackers))
+                add_value(textArray, ('~y~%s Imposters'):format(#defenders))
 
-              
+                local veh = GetVehiclePedIsIn(PlayerPedId(), true)
+                if veh ~= 0 then
+                    local vehicleLabel = GetDisplayNameFromVehicleModel(GetEntityModel(veh))
+                    vehicleLabel = GetLabelText(vehicleLabel)
+                    add_value(textArray,  '')
+                    local lock = GetVehicleDoorLockStatus(veh)
+                    if lock == 1 or lock == 0 then
+                        add_value(textArray,  ('~o~%s\n~g~(Unlocked)'):format(vehicleLabel))
+                    elseif lock == 2 then
+                        add_value(textArray,  ('~o~%s\n~r~(Locked)'):format(vehicleLabel))
+                    end
+                end
                
                 currentScore = totalLife * (totalPlayers * 1.68 - 1)
                 for i, text in pairs(textArray) do
@@ -624,7 +640,6 @@ AddEventHandler('onClientGameTypeStart', function()
                 'g_m_y_mexgoon_02',
                 'g_m_y_mexgoon_03',
                 'g_m_y_salvagoon_01',
-                'g_m_m_casrn_01',
                 'g_f_importexport_01',
                 'g_f_importexport_01',
                 'g_f_y_ballas_01',
@@ -638,8 +653,7 @@ AddEventHandler('onClientGameTypeStart', function()
                 's_m_y_autopsy_01',
                 's_m_y_marine_02',
                 's_m_y_marine_01',
-                's_m_y_xmech_02'
-                
+                's_m_y_xmech_02'     
         }
         elseif ourTeamType  == 'defender' then
             inModels = {
@@ -784,7 +798,7 @@ AddEventHandler('onHuntingPackStart',
     extractionTimeRemaining = 20
     isExtracting = false
     hasExtracted = false
-    timeRemainingOnFoot = 60
+    timeRemainingOnFoot = 300
     shouldNotifyAboutDeath = true
     drivers = inDrivers
     if teamtype == 'driver' and drivers[1] == GetPlayerName(PlayerId()) then
@@ -973,7 +987,7 @@ Citizen.CreateThread(function()
   
    
     while true do
-        Wait(100)
+        Wait(250)
 
         local players = GetPlayers()
         local localScoreToBeat = 0
@@ -1000,8 +1014,7 @@ Citizen.CreateThread(function()
             if player ~= currentPlayer and NetworkIsPlayerActive(player) then
                 local playerPed = GetPlayerPed(player)
                 local playerName = GetPlayerName(player)
-            
-                local currentVehicleId = GetVehiclePedIsIn(playerPed, false)
+        
                 local shouldCreateBlip = true
                 if has_value(drivers, playerName) and not has_value(drivers, localPlayerName) then
                     if currentVehicleId == 0 and not forceDriverBlipVisible[playerName] then
@@ -1035,24 +1048,33 @@ Citizen.CreateThread(function()
 
                     -- Add player name to blip
                     SetBlipNameToPlayerName(new_blip, player)
-
+                    SetBlipDisplay(new_blip, 2)
+                    local currentVehicleId = GetVehiclePedIsIn(playerPed, false)   
+                    if currentVehicleId == 0 then
+                        SetBlipShowCone(new_blip, false)
+                    else
+                        SetBlipShowCone(new_blip, true)
+                    end
+                    local currentBlipColor = GetBlipColour(new_blip)
                     -- Make blip white
                     if has_value(defenders, playerName) and not has_value(defenders, localPlayerName) then
                         SetBlipColour(new_blip, 64)
-                        SetBlipCategory(new_blip, 380)
                         SetMpGamerTagColour(gamerTag, 0, 39)
                     elseif has_value(drivers, playerName) and not has_value(drivers,  localPlayerName) then
                         SetBlipColour(new_blip, 1)
-                        SetBlipCategory(new_blip, 380)
                         SetMpGamerTagColour(gamerTag, 0, 208)
                     elseif has_value(attackers, playerName) then
-                        SetBlipColour(new_blip, 4)
-                        SetBlipCategory(new_blip, 56)
+                        if currentBlipColor == 3 and IsVehicleSirenOn(currentVehicleId) then
+                            SetBlipColour(new_blip, 1)
+                        else
+                            SetBlipColour(new_blip, 3)
+                        end
+
                         SetMpGamerTagColour(gamerTag, 0, 9)
                     else
                         SetBlipColour(new_blip, 2)
-                        SetBlipCategory(new_blip, 56)
                         SetMpGamerTagColour(gamerTag, 0, 18)
+                       
                     end
 
                     --if has_value(drivers, playerName) and not DoesBlipHaveGpsRoute(new_blip) then
@@ -1112,7 +1134,10 @@ end)
 
 RegisterNetEvent("OnUpdateAttackers")
 AddEventHandler('OnUpdateAttackers', function(inAttackers)
-   atackers = inAttackers
+   attackers = inAttackers
+   for _, player in pairs(attackers) do
+    print(player)
+   end
 end)
 
 RegisterNetEvent("OnUpdateDefenders")
@@ -1206,7 +1231,7 @@ Citizen.CreateThread(function()
             local colorOnFootTime = {}
             local currentPercentage = (maxTimeBelowSpeed-timeBelowSpeed)/60.0
             if  currentVehicleId == 0 then
-                currentPercentage = (timeRemainingOnFoot/60.0)
+                currentPercentage = (timeRemainingOnFoot/300.0)
             end
             currentPercentage = math.clamp(currentPercentage, 0.0, 100.0)
             if currentPercentage > 0.75 then
@@ -1422,10 +1447,13 @@ end)
 
 RegisterNetEvent('OnNotifyDriverBlipArea')
 AddEventHandler('OnNotifyDriverBlipArea', function(driverName, enabled, posX, posY, posZ)
+    if IsDriver() then
+        enabled = false
+    end
     if enabled then
         PlaySoundFrontend(999, 'Lose_1st', 'GTAO_Magnate_Boss_Modes_Soundset')       
         RemoveBlip(driverBlip[driverName])
-        driverBlip[driverName] = AddBlipForRadius(posX, posY, posZ, 50.0)
+        driverBlip[driverName] = AddBlipForRadius(posX, posY, posZ, 200.0)
         SetBlipColour(driverBlip[driverName], 1)
         SetBlipAlpha(driverBlip[driverName], 128)
     else
@@ -1486,7 +1514,7 @@ RegisterCommand('+carjack', function(source, args, rawcommand)
     end
     if closestPlayerPed ~= 0 then
         local pos = GetEntityCoords(GetPlayerPed(-1))
-        local veh = GetVehiclePedIsIn(closestPlayerPed, true)
+        local veh = GetVehiclePedIsIn(closestPlayerPed, false)
         if veh ~= 0 then
             isCarjacking = true
             carJackingVehicle = veh
@@ -1503,7 +1531,6 @@ RegisterCommand('-carjack', function(source, args, rawcommand)
     ClearPedTasks(GetPlayerPed(-1))
   
 end, false)
-
 
 Citizen.CreateThread(function()
     while true do
@@ -1534,17 +1561,38 @@ end, false)
 
 
 RegisterCommand('togglesirenaudio', function(source, args, rawcommand)
-    print('toggling siren')
+
     currentVehicleId = GetVehiclePedIsIn(PlayerPedId(), false)
     if currentVehicleId ~= 0 then
         local id = NetworkGetNetworkIdFromEntity(currentVehicleId)
         if sirenState[id] == nil or sirenState[id] == true then
+            print('siren off')
             sirenState[id] = false
         else
+            print('siren on')
             sirenState[id] = true
         end
    
         TriggerServerEvent('OnNotifySirenState', id, sirenState[id])
+    end
+end, false)
+
+RegisterCommand('lockdoors', function(source, args, rawcommand)
+    local veh = GetVehiclePedIsIn(PlayerPedId(), true)
+    local lock = GetVehicleDoorLockStatus(veh)
+    if (lock == 1 or lock == 0) and not IsPedInAnyVehicle(PlayerPedId(), true) then
+        SetVehicleDoorShut(veh, 0, false)
+        SetVehicleDoorShut(veh, 1, false)
+        SetVehicleDoorShut(veh, 2, false)
+        SetVehicleDoorShut(veh, 3, false)
+        SetVehicleDoorsLocked(veh, 2)
+        PlayVehicleDoorCloseSound(veh, 1)
+    elseif lock == 2 then
+        SetVehicleDoorsLocked(veh, 1)
+        PlayVehicleDoorOpenSound(veh, 0)
+    end
+    if not IsPedInAnyVehicle(PlayerPedId(), true) then
+        TaskPlayAnim(PlayerPedId(), dict, "fob_click_fp", 8.0, 8.0, -1, 48, 1, false, false, false)
     end
 end, false)
 
@@ -1596,3 +1644,4 @@ RegisterKeyMapping('+scoreboard', 'Scoreboard', 'keyboard', 'CAPITAL')
 RegisterKeyMapping('+carjack', 'Car Jack', 'keyboard', 'G')
 RegisterKeyMapping('+rules', 'View Rules', 'keyboard', 'F5')
 RegisterKeyMapping('togglesirenaudio', 'Toggle Siren', "keyboard", "LMENU")
+RegisterKeyMapping('lockdoors', 'Lock Vehicle Doors', 'keyboard', 'U')

@@ -47,14 +47,18 @@ end)
 RegisterNetEvent("baseevents:onPlayerKilled")
 AddEventHandler('baseevents:onPlayerKilled', function(killedBy, data)
     print(GetPlayerName(killedBy) .. ' has killed ' .. GetPlayerName(source) )
+   
     if has_value(drivers, GetPlayerName(killedBy)) and has_value(attackers, GetPlayerName(source)) then
       -- weapon upgrade
       killsUntilWeaponUpgrade = killsUntilWeaponUpgrade - 1
+      local killerCoords = data.killerpos
+      TriggerClientEvent('OnNotifyDriverBlipArea', -1, GetPlayerName(killedBy), true, killerCoords[1], killerCoords[2], killerCoords[3])
       if killsUntilWeaponUpgrade <= 0 then
         weaponUpgradeLevel = weaponUpgradeLevel + 1
         killsUntilWeaponUpgrade = 3
         send_global_message(('Weapons have been upgraded. Level %i'):format(weaponUpgradeLevel))
         TriggerClientEvent('OnWeaponUpgrade', -1, weaponUpgradeLevel)
+        
     end
       
     end
@@ -228,8 +232,7 @@ AddEventHandler('OnRequestedStart', function(startPoint)
     drivers = {}
     attackers = {}
     defenders = {}
-    TriggerClientEvent('OnUpdateDefenders', -1, defenders)
-
+    
 
     driverName = ''
 
@@ -241,6 +244,8 @@ AddEventHandler('OnRequestedStart', function(startPoint)
     end
 
     drivers = shuffle(drivers)
+    drivers = {}
+    driverIdxs = {}
    
     for i, playerId in ipairs(spawnedPlayers) do
         local name = GetPlayerName(playerId)
@@ -282,6 +287,10 @@ AddEventHandler('OnRequestedStart', function(startPoint)
         end
     end
     print("Finished Selecting Teams!... Preparing spawning")
+    TriggerClientEvent('OnUpdateDefenders', -1, defenders)
+    TriggerClientEvent('OnUpdateAttackers', -1, attackers)
+    TriggerClientEvent('OnUpdateDrivers', -1, drivers)
+
 end)
 
 RegisterNetEvent("OnNotifyBelowSpeed")
@@ -535,8 +544,8 @@ AddEventHandler('OnNotifyHighScore', function(Name, LifeTime)
 end)
 
 RegisterNetEvent('OnNotifyDriverBlipArea')
-AddEventHandler('OnNotifyDriverBlipArea', function(enabled, posX, posY, posZ)
-    TriggerClientEvent('OnNotifyDriverBlipArea', -1, enabled, posX, posY, posZ)
+AddEventHandler('OnNotifyDriverBlipArea', function(playerName, enabled, posX, posY, posZ)
+    TriggerClientEvent('OnNotifyDriverBlipArea', -1, playerName, enabled, posX, posY, posZ)
 end)
 
 RegisterNetEvent('OnNotifyDriversVehicleSpawned')
